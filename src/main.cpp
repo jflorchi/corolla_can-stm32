@@ -135,15 +135,12 @@ void loop() {
   if (loopCounter == 1001) {
     loopCounter = 0;
   }
-  // Serial.println("LOOP");
-  Serial.println(((angleSensor.getRawRotation() - zssOffset) % 16383));
-  Serial.println(can.available()); // why is writing messages to the CAN bus locking stuff up?
 
   // 100 Hz:
   if (counter == 0 || counter % 10 == 0) {
     writeMsg(0x1c4, MSG15, 8, false);
     writeMsg(0xaa, WHEEL_SPEEDS, 8, false);
-    writeMsg(0x130, MSG1,      7, false);
+    writeMsg(0x130, MSG1, 7, false);
     writeMsg(0x414, MSG8, 7, false);
     writeMsg(0x466, MSG9, 3, false);
     writeMsg(0x489, MSG10, 7, false);

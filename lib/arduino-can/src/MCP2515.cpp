@@ -192,6 +192,10 @@ int MCP2515Class::endPacket()
   bool aborted = false;
 
   while (readRegister(REG_TXBnCTRL(n)) & 0x08) {
+    // Serial.println(" -- ");
+    // Serial.println(readRegister(REG_TXBnCTRL(n)));
+    // Serial.println(readRegister(REG_TXBnCTRL(n)) & 0x08);
+    // Serial.println(readRegister(REG_TXBnCTRL(n)) & 0x10);
     if (readRegister(REG_TXBnCTRL(n)) & 0x10) {
       // abort
       aborted = true;
