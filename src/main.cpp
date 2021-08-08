@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <CAN.h>
+#include <MCP2515.h>
 #include <AS5048A.h>
 
 /**
@@ -69,37 +69,40 @@ bool openEnabled = false;
 uint16_t setSpeed = 0x00;
 bool blinkerRight = false, blinkerLeft = false;
 
-AS5048A angleSensor(PA4);
+AS5048A angleSensor(PB9);
 uint8_t loopCounter = 0;
 short lastAngle = 0;
 float steerFraction = 0;
-float steerFractionMul = 16383.0 / 360.0;
+float steerFractionMul = 360.0 / 16383.0;
 float steerFractionStep = 1.5 / steerFractionMul;
 uint16_t zssOffset = 0;
 
+MCP2515Class can;
+
 void recv(int packetSize) {
-    long id = CAN.packetId();
+    long id = can.packetId();
+    
+    // Serial.println(id);
     if (id == 0xb0) {
         uint8_t dat[8];
-        WHEEL_SPEEDS[0] = CAN.read() + 0x1a;
-        WHEEL_SPEEDS[1] = CAN.read() + 0x6f;
-        WHEEL_SPEEDS[2] = CAN.read() + 0x1a;
-        WHEEL_SPEEDS[3] = CAN.read() + 0x6f;
+        WHEEL_SPEEDS[0] = can.read() + 0x1a;
+        WHEEL_SPEEDS[1] = can.read() + 0x6f;
+        WHEEL_SPEEDS[2] = can.read() + 0x1a;
+        WHEEL_SPEEDS[3] = can.read() + 0x6f;
     } else if (id == 0xb2) {
-        WHEEL_SPEEDS[4] = CAN.read() + 0x1a;
-        WHEEL_SPEEDS[5] = CAN.read() + 0x6f;
-        WHEEL_SPEEDS[6] = CAN.read() + 0x1a;
-        WHEEL_SPEEDS[7] = CAN.read() + 0x6f;
+        WHEEL_SPEEDS[4] = can.read() + 0x1a;
+        WHEEL_SPEEDS[5] = can.read() + 0x6f;
+        WHEEL_SPEEDS[6] = can.read() + 0x1a;
+        WHEEL_SPEEDS[7] = can.read() + 0x6f;
     } else if (id == 0x399) {
-        CAN.read();
-        openEnabled = (CAN.read() & 0x2) == 2;
+        can.read();
+        openEnabled = (can.read() & 0x2) == 2;
     } else if (id == 0x25) {
-      digitalWrite(PC13, HIGH);
       uint16_t zssAngle = angleSensor.getRawRotation();
-      uint8_t b1 = CAN.read();
+      uint8_t b1 = can.read();
       bool negative = (b1 & 0x8) == 1;
       b1 &= 0xF;
-      uint8_t b2 = CAN.read();
+      uint8_t b2 = can.read();
       uint16_t angle = negative ? -((b1 << 8) | b2) : (b1 << 8) | b2;
       if (angle > lastAngle) {
         steerFraction = 0;
@@ -108,19 +111,22 @@ void recv(int packetSize) {
         steerFraction = steerFractionStep;
         zssOffset = zssAngle;
       }
+      Serial.println("OH: " + lastAngle);
+      Serial.println("YEAH: " + angle);
+      Serial.println();
+      Serial.println();
       lastAngle = angle;
-      digitalWrite(PC13, LOW);
     }
 }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println("Starting up...");
-  pinMode(PC13, OUTPUT);
+  angleSensor.init();
 
-  CAN.setPins(PB9, PB1);
-  CAN.begin(500E3);
-  CAN.onReceive(recv);
+  can.setPins(PA4, PA0);
+  can.begin(500E3);
+  can.onReceive(recv);
 }
 
 uint16_t counter = 0;
@@ -129,14 +135,15 @@ void loop() {
   if (loopCounter == 1001) {
     loopCounter = 0;
   }
-
-  Serial.print(angleSensor.getRawRotation());
+  // Serial.println("LOOP");
+  Serial.println(((angleSensor.getRawRotation() - zssOffset) % 16383));
+  Serial.println(can.available()); // why is writing messages to the CAN bus locking stuff up?
 
   // 100 Hz:
   if (counter == 0 || counter % 10 == 0) {
     writeMsg(0x1c4, MSG15, 8, false);
     writeMsg(0xaa, WHEEL_SPEEDS, 8, false);
-    writeMsg(0x130, MSG1, 7, false);
+    writeMsg(0x130, MSG1,      7, false);
     writeMsg(0x414, MSG8, 7, false);
     writeMsg(0x466, MSG9, 3, false);
     writeMsg(0x489, MSG10, 7, false);
@@ -148,6 +155,7 @@ void loop() {
     writeMsg(0x4cb, MSG33, 8, false);
 
     ZSS[0] = getSteerFraction();
+    Serial.println(getSteerFraction());
     writeMsg(0x23, ZSS, 8, false);
   }
   
@@ -205,7 +213,7 @@ void loop() {
   
   // 1 Hz:
   if (counter == 0) {
-    STEERING_LEVER_MSG[3] = (blinkerLeft << 5) & 0x20 | (blinkerRight << 4) & 0x10;
+    // STEERING_LEVER_MSG[3] = (blinkerLeft << 5) & 0x20 | (blinkerRight << 4) & 0x10;
     writeMsg(0x614, STEERING_LEVER_MSG, 8, true);
   }
 
@@ -218,14 +226,14 @@ uint8_t getSteerFraction() {
 }
 
 bool writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum) {
-    CAN.beginPacket(id);
+    can.beginPacket(id);
     if (checksum) {
         attachChecksum(id, len, msg);
     }
     for (int i = 0; i < len; i++) {
-        CAN.write(msg[i]);
+        can.write(msg[i]);
     }
-    return CAN.endPacket();
+    return can.endPacket();
 }
 
 void attachChecksum(uint16_t id, uint8_t len, uint8_t *msg) {
