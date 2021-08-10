@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <MCP2515.h>
+#include <mcp2515.h>
 #include <AS5048A.h>
 
 /**
@@ -77,32 +77,33 @@ float steerFractionMul = 360.0 / 16383.0;
 float steerFractionStep = 1.5 / steerFractionMul;
 uint16_t zssOffset = 0;
 
-MCP2515Class can;
+MCP2515 can(PA4);
 
-void recv(int packetSize) {
-    long id = can.packetId();
-    
-    // Serial.println(id);
+void recv() {
+  uint8_t irq = can.getInterrupts();
+  can_frame frame;
+  if (irq & MCP2515::CANINTF_RX0IF) {
+    if (can.readMessage(MCP2515::RXB0, &frame) == MCP2515::ERROR_OK) {
+      long id = frame.can_id;
     if (id == 0xb0) {
         uint8_t dat[8];
-        WHEEL_SPEEDS[0] = can.read() + 0x1a;
-        WHEEL_SPEEDS[1] = can.read() + 0x6f;
-        WHEEL_SPEEDS[2] = can.read() + 0x1a;
-        WHEEL_SPEEDS[3] = can.read() + 0x6f;
+        WHEEL_SPEEDS[0] = frame.data[0] + 0x1a;
+        WHEEL_SPEEDS[1] = frame.data[1] + 0x6f;
+        WHEEL_SPEEDS[2] = frame.data[2] + 0x1a;
+        WHEEL_SPEEDS[3] = frame.data[3] + 0x6f;
     } else if (id == 0xb2) {
-        WHEEL_SPEEDS[4] = can.read() + 0x1a;
-        WHEEL_SPEEDS[5] = can.read() + 0x6f;
-        WHEEL_SPEEDS[6] = can.read() + 0x1a;
-        WHEEL_SPEEDS[7] = can.read() + 0x6f;
+        WHEEL_SPEEDS[4] = frame.data[0] + 0x1a;
+        WHEEL_SPEEDS[5] = frame.data[1] + 0x6f;
+        WHEEL_SPEEDS[6] = frame.data[2] + 0x1a;
+        WHEEL_SPEEDS[7] = frame.data[3] + 0x6f;
     } else if (id == 0x399) {
-        can.read();
-        openEnabled = (can.read() & 0x2) == 2;
+        openEnabled = (frame.data[1] & 0x2) == 2;
     } else if (id == 0x25) {
       uint16_t zssAngle = angleSensor.getRawRotation();
-      uint8_t b1 = can.read();
+      uint8_t b1 = frame.data[0];
       bool negative = (b1 & 0x8) == 1;
       b1 &= 0xF;
-      uint8_t b2 = can.read();
+      uint8_t b2 = frame.data[1];
       uint16_t angle = negative ? -((b1 << 8) | b2) : (b1 << 8) | b2;
       if (angle > lastAngle) {
         steerFraction = 0;
@@ -111,12 +112,16 @@ void recv(int packetSize) {
         steerFraction = steerFractionStep;
         zssOffset = zssAngle;
       }
-      Serial.println("OH: " + lastAngle);
-      Serial.println("YEAH: " + angle);
-      Serial.println();
-      Serial.println();
       lastAngle = angle;
     }
+    }
+  }
+
+  if (irq & MCP2515::CANINTF_RX1IF) {
+    if (can.readMessage(MCP2515::RXB1, &frame) == MCP2515::ERROR_OK) {
+      
+    }
+  }
 }
 
 void setup() {
@@ -124,9 +129,12 @@ void setup() {
   Serial.println("Starting up...");
   angleSensor.init();
 
-  can.setPins(PA4, PA0);
-  can.begin(500E3);
-  can.onReceive(recv);
+
+  can.reset();
+  can.setBitrate(CAN_500KBPS, MCP_16MHZ);
+  can.setNormalMode();
+  attachInterrupt(0, recv, FALLING);
+
 }
 
 uint16_t counter = 0;
@@ -223,14 +231,16 @@ uint8_t getSteerFraction() {
 }
 
 bool writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum) {
-    can.beginPacket(id);
-    if (checksum) {
-        attachChecksum(id, len, msg);
-    }
-    for (int i = 0; i < len; i++) {
-        can.write(msg[i]);
-    }
-    return can.endPacket();
+  can_frame frame;
+  frame.can_id = id;
+  frame.can_dlc = len;
+  if (checksum) {
+      attachChecksum(id, len, msg);
+  }
+  for (int i = 0; i < len; i++) {
+    frame.data[i] = msg[i];
+  }
+  return can.sendMessage(&frame);
 }
 
 void attachChecksum(uint16_t id, uint8_t len, uint8_t *msg) {
