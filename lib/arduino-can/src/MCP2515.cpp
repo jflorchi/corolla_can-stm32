@@ -76,6 +76,9 @@ int MCP2515Class::begin(long baudRate)
   pinMode(_csPin, OUTPUT);
 
   // start SPI
+  SPI.setMISO(PA7);
+  SPI.setMOSI(PA6);
+  SPI.setSCLK(PA5);
   SPI.begin();
 
   reset();

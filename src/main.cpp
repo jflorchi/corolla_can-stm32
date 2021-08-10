@@ -9,6 +9,7 @@ void recv(int packetSize);
 bool writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum);
 void attachChecksum(uint16_t id, uint8_t len, uint8_t *msg);
 int getChecksum(uint8_t *msg, uint8_t len, uint16_t addr);
+float getSteerFractionDecimal();
 uint8_t getSteerFraction();
 
 /**
@@ -125,7 +126,7 @@ void setup() {
 
   can.setPins(PA4, PA0);
   can.begin(500E3);
-  // can.onReceive(recv);
+  can.onReceive(recv);
 }
 
 uint16_t counter = 0;
@@ -136,6 +137,8 @@ void loop() {
   }
 
   Serial.println(can.available());
+  float angle = lastAngle + getSteerFractionDecimal();
+  Serial.println(angle);
 
   // 100 Hz:
   if (counter == 0 || counter % 10 == 0) {
@@ -153,7 +156,6 @@ void loop() {
     writeMsg(0x4cb, MSG33, 8, false);
 
     ZSS[0] = getSteerFraction();
-    // Serial.println(getSteerFraction());
     writeMsg(0x23, ZSS, 8, false);
   }
   
@@ -219,8 +221,12 @@ void loop() {
   loopCounter++;
 }
 
+float getSteerFractionDecimal() {
+  return getSteerFraction() * steerFractionMul;
+}
+
 uint8_t getSteerFraction() {
-  return round(((angleSensor.getRawRotation() - zssOffset) % 16383) * steerFractionMul);
+  return ((angleSensor.getRawRotation() - zssOffset) % 16383);
 }
 
 bool writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum) {
