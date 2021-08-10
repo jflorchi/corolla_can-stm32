@@ -81,8 +81,6 @@ MCP2515Class can;
 
 void recv(int packetSize) {
     long id = can.packetId();
-    
-    // Serial.println(id);
     if (id == 0xb0) {
         uint8_t dat[8];
         WHEEL_SPEEDS[0] = can.read() + 0x1a;
@@ -111,10 +109,6 @@ void recv(int packetSize) {
         steerFraction = steerFractionStep;
         zssOffset = zssAngle;
       }
-      Serial.println("OH: " + lastAngle);
-      Serial.println("YEAH: " + angle);
-      Serial.println();
-      Serial.println();
       lastAngle = angle;
     }
 }
@@ -124,7 +118,7 @@ void setup() {
   Serial.println("Starting up...");
   angleSensor.init();
 
-  can.setPins(PA4, PA0);
+  can.setPins(PA4, PA1);
   can.begin(500E3);
   can.onReceive(recv);
 }
@@ -152,7 +146,6 @@ void loop() {
     writeMsg(0x4cb, MSG33, 8, false);
 
     ZSS[0] = getSteerFraction();
-    Serial.println(getSteerFraction());
     writeMsg(0x23, ZSS, 8, false);
   }
   
