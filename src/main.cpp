@@ -81,7 +81,6 @@ MCP2515Class can;
 
 void recv(int packetSize) {
     long id = can.packetId();
-    
     // Serial.println(id);
     if (id == 0xb0) {
         uint8_t dat[8];
@@ -126,7 +125,7 @@ void setup() {
 
   can.setPins(PA4, PA0);
   can.begin(500E3);
-  can.onReceive(recv);
+  // can.onReceive(recv);
 }
 
 uint16_t counter = 0;
@@ -135,6 +134,8 @@ void loop() {
   if (loopCounter == 1001) {
     loopCounter = 0;
   }
+
+  Serial.println(can.available());
 
   // 100 Hz:
   if (counter == 0 || counter % 10 == 0) {
@@ -152,7 +153,7 @@ void loop() {
     writeMsg(0x4cb, MSG33, 8, false);
 
     ZSS[0] = getSteerFraction();
-    Serial.println(getSteerFraction());
+    // Serial.println(getSteerFraction());
     writeMsg(0x23, ZSS, 8, false);
   }
   
@@ -210,7 +211,7 @@ void loop() {
   
   // 1 Hz:
   if (counter == 0) {
-    // STEERING_LEVER_MSG[3] = (blinkerLeft << 5) & 0x20 | (blinkerRight << 4) & 0x10;
+    STEERING_LEVER_MSG[3] = (blinkerLeft << 5) & 0x20 | (blinkerRight << 4) & 0x10;
     writeMsg(0x614, STEERING_LEVER_MSG, 8, true);
   }
 

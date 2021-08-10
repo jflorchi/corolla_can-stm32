@@ -65,7 +65,6 @@ private:
 
 private:
   SPISettings _spiSettings;
-  SPIClass spi;
   int _csPin;
   int _intPin;
   long _clockFrequency;
