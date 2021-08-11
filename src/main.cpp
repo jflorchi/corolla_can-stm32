@@ -9,6 +9,7 @@ void recv(int packetSize);
 bool writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum);
 void attachChecksum(uint16_t id, uint8_t len, uint8_t *msg);
 int getChecksum(uint8_t *msg, uint8_t len, uint16_t addr);
+float getSteerFractionDecimal();
 uint8_t getSteerFraction();
 
 /**
@@ -81,6 +82,7 @@ MCP2515Class can;
 
 void recv(int packetSize) {
     long id = can.packetId();
+    Serial.println(id);
     if (id == 0xb0) {
         uint8_t dat[8];
         WHEEL_SPEEDS[0] = can.read() + 0x1a;
@@ -118,7 +120,7 @@ void setup() {
   Serial.println("Starting up...");
   angleSensor.init();
 
-  can.setPins(PA4, PA1);
+  can.setPins(PA15, PA2);
   can.begin(500E3);
   can.onReceive(recv);
 }
@@ -129,6 +131,10 @@ void loop() {
   if (loopCounter == 1001) {
     loopCounter = 0;
   }
+
+  Serial.println(can.available());
+  float angle = getSteerFractionDecimal();
+  Serial.println(angle);
 
   // 100 Hz:
   if (counter == 0 || counter % 10 == 0) {
@@ -145,7 +151,7 @@ void loop() {
     writeMsg(0x3bb, MSG19, 4, false);
     writeMsg(0x4cb, MSG33, 8, false);
 
-    ZSS[0] = getSteerFraction();
+    // ZSS[0] = getSteerFraction();
     writeMsg(0x23, ZSS, 8, false);
   }
   
@@ -203,7 +209,7 @@ void loop() {
   
   // 1 Hz:
   if (counter == 0) {
-    // STEERING_LEVER_MSG[3] = (blinkerLeft << 5) & 0x20 | (blinkerRight << 4) & 0x10;
+    STEERING_LEVER_MSG[3] = (blinkerLeft << 5) & 0x20 | (blinkerRight << 4) & 0x10;
     writeMsg(0x614, STEERING_LEVER_MSG, 8, true);
   }
 
@@ -211,8 +217,12 @@ void loop() {
   loopCounter++;
 }
 
+float getSteerFractionDecimal() {
+  return getSteerFraction() * steerFractionMul;
+}
+
 uint8_t getSteerFraction() {
-  return round(((angleSensor.getRawRotation() - zssOffset) % 16383) * steerFractionMul);
+  return ((angleSensor.getRawRotation() - zssOffset) % 16383);
 }
 
 bool writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum) {
