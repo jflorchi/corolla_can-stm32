@@ -15,7 +15,7 @@ const struct MCP2515::RXBn_REGS MCP2515::RXB[N_RXBUFFERS] = {
 MCP2515::MCP2515(const uint8_t _CS)
 {
     _spi.setMOSI(PB15);
-    _spi.setMISO(PB13);
+    _spi.setMISO(PB14);
     _spi.setSCLK(PB10);
     _spi.begin();
 

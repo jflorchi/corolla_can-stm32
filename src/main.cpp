@@ -7,7 +7,7 @@
  * Function definitions
  */
 void recv(int packetSize);
-void writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum);
+void writeMsg(uint32_t id, uint8_t *msg, uint8_t len, bool checksum);
 void attachChecksum(uint16_t id, uint8_t len, uint8_t *msg);
 int getChecksum(uint8_t *msg, uint8_t len, uint16_t addr);
 
@@ -72,25 +72,7 @@ bool blinkerRight = false, blinkerLeft = false;
 uint8_t loopCounter = 0;
 
 void recv(int packetSize) {
-    // long id = can.packetId();
-    // Serial.println(id);
-    // if (id == 0xb0) {
-    //     uint8_t dat[8];
-    //     WHEEL_SPEEDS[0] = can.read() + 0x1a;
-    //     WHEEL_SPEEDS[1] = can.read() + 0x6f;
-    //     WHEEL_SPEEDS[2] = can.read() + 0x1a;
-    //     WHEEL_SPEEDS[3] = can.read() + 0x6f;
-    // } else if (id == 0xb2) {
-    //     WHEEL_SPEEDS[4] = can.read() + 0x1a;
-    //     WHEEL_SPEEDS[5] = can.read() + 0x6f;
-    //     WHEEL_SPEEDS[6] = can.read() + 0x1a;
-    //     WHEEL_SPEEDS[7] = can.read() + 0x6f;
-    // } else if (id == 0x399) {
-    //     can.read();
-    //     openEnabled = (can.read() & 0x2) == 2;
-    // } else if (id == 0x25) {
 
-    // }
 }
 
 MCP2515 can(PB9);
@@ -112,13 +94,23 @@ void loop() {
   }
 
   struct can_frame frame; // will need a while loop
-  uint8_t val = can.readMessage(&frame);
-  if (val == MCP2515::ERROR_OK) {
-    Serial.println(frame.can_id);
-    digitalWrite(PC13, HIGH);
-  } else {
-    Serial.println(val);
-    digitalWrite(PC13, LOW);
+  while (can.readMessage(&frame) == MCP2515::ERROR_OK) {
+    if (frame.can_id == 0xb0) {
+        uint8_t dat[8];
+        WHEEL_SPEEDS[0] = frame.data[0] + 0x1a;
+        WHEEL_SPEEDS[1] = frame.data[1] + 0x6f;
+        WHEEL_SPEEDS[2] = frame.data[2] + 0x1a;
+        WHEEL_SPEEDS[3] = frame.data[3] + 0x6f;
+    } else if (frame.can_id == 0xb2) {
+        WHEEL_SPEEDS[4] = frame.data[0] + 0x1a;
+        WHEEL_SPEEDS[5] = frame.data[1] + 0x6f;
+        WHEEL_SPEEDS[6] = frame.data[2] + 0x1a;
+        WHEEL_SPEEDS[7] = frame.data[3] + 0x6f;
+    } else if (frame.can_id == 0x399) {
+        openEnabled = (frame.data[1] & 0x2) == 2;
+    } else if (frame.can_id == 0x25) {
+
+    }
   }
 
   // 100 Hz:
@@ -202,7 +194,7 @@ void loop() {
   loopCounter++;
 }
 
-void writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum) {
+void writeMsg(uint32_t id, uint8_t *msg, uint8_t len, bool checksum) {
     struct can_frame frame;
     frame.can_id = id;
     frame.can_dlc = len;
