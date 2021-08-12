@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <mcp2515.h>
 #include <can.h>
+#include <SPI.h>
 
 /**
  * Function definitions
@@ -92,27 +93,18 @@ void recv(int packetSize) {
     // }
 }
 
-MCP2515 can(PA4);
+MCP2515 can(PB9);
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting up...");
+  pinMode(PC13, OUTPUT);
+  pinMode(PC13, LOW);
 
   can.reset();
   can.setBitrate(CAN_500KBPS, MCP_16MHZ);
   can.setNormalMode();
-
-/**
- *   SPI.setMISO(PA6);
-  SPI.setMOSI(PA7);
-  SPI.setSCLK(PA5);
-  can.setPins(PA4, PB1);
-  can.begin(500E3);
-
-  */
 }
-
-uint16_t counter = 0;
 
 void loop() {
   if (loopCounter == 1001) {
@@ -123,88 +115,88 @@ void loop() {
   uint8_t val = can.readMessage(&frame);
   if (val == MCP2515::ERROR_OK) {
     Serial.println(frame.can_id);
+    digitalWrite(PC13, HIGH);
   } else {
     Serial.println(val);
+    digitalWrite(PC13, LOW);
   }
 
-  // Serial.println(can.available());
-
   // 100 Hz:
-  // if (counter == 0 || counter % 10 == 0) {
-  //   writeMsg(0x1c4, MSG15, 8, false);
-  //   writeMsg(0xaa, WHEEL_SPEEDS, 8, false);
-  //   writeMsg(0x130, MSG1, 7, false);
-  //   writeMsg(0x414, MSG8, 7, false);
-  //   writeMsg(0x466, MSG9, 3, false);
-  //   writeMsg(0x489, MSG10, 7, false);
-  //   writeMsg(0x48a, MSG11, 7, false);
-  //   writeMsg(0x48b, MSG12, 8, false);
-  //   writeMsg(0x4d3, MSG13, 8, false);
-  //   writeMsg(0x3bc, GEAR_MSG, 8, false);
-  //   writeMsg(0x3bb, MSG19, 4, false);
-  //   writeMsg(0x4cb, MSG33, 8, false);
+  if (loopCounter == 0 || loopCounter % 10 == 0) {
+    writeMsg(0x1c4, MSG15, 8, false);
+    writeMsg(0xaa, WHEEL_SPEEDS, 8, false);
+    writeMsg(0x130, MSG1, 7, false);
+    writeMsg(0x414, MSG8, 7, false);
+    writeMsg(0x466, MSG9, 3, false);
+    writeMsg(0x489, MSG10, 7, false);
+    writeMsg(0x48a, MSG11, 7, false);
+    writeMsg(0x48b, MSG12, 8, false);
+    writeMsg(0x4d3, MSG13, 8, false);
+    writeMsg(0x3bc, GEAR_MSG, 8, false);
+    writeMsg(0x3bb, MSG19, 4, false);
+    writeMsg(0x4cb, MSG33, 8, false);
 
-  //   // ZSS[0] = getSteerFraction();
-  //   writeMsg(0x23, ZSS, 8, false);
-  // }
+    // ZSS[0] = getSteerFraction();
+    writeMsg(0x23, ZSS, 8, false);
+  }
   
-  // // 50 Hz:
-  // if (counter == 0 || counter % 20 == 0) {
-  //   writeMsg(0x3d3, MSG17, 2, false);
-  //   writeMsg(0x4ac, MSG24, 8, false);
-  // }
+  // 50 Hz:
+  if (loopCounter == 0 || loopCounter % 20 == 0) {
+    writeMsg(0x3d3, MSG17, 2, false);
+    writeMsg(0x4ac, MSG24, 8, false);
+  }
   
-  // // 40 Hz:
-  // if (counter == 0 || counter % 25 == 0) {
-  //   writeMsg(0x367, MSG7, 2, false);
-  // }
+  // 40 Hz:
+  if (loopCounter == 0 || loopCounter % 25 == 0) {
+    writeMsg(0x367, MSG7, 2, false);
+  }
   
-  // // 20 Hz:
-  // if (counter == 0 || counter % 50 == 0) {
-  //   writeMsg(0x3f9, MSG20, 8, false);
-  //   writeMsg(0x365, MSG31, 7, false);
-  //   writeMsg(0x366, MSG32, 7, false);
-  // }
+  // 20 Hz:
+  if (loopCounter == 0 || loopCounter % 50 == 0) {
+    writeMsg(0x3f9, MSG20, 8, false);
+    writeMsg(0x365, MSG31, 7, false);
+    writeMsg(0x366, MSG32, 7, false);
+  }
   
-  // // 7 Hz
-  // if (counter == 0 || counter % 142 == 0) {
-  //   writeMsg(0x160, MSG27, 8, false);
-  //   writeMsg(0x161, MSG28, 7, false);
-  // }
+  // 7 Hz
+  if (loopCounter == 0 || loopCounter % 142 == 0) {
+    writeMsg(0x160, MSG27, 8, false);
+    writeMsg(0x161, MSG28, 7, false);
+  }
   
-  // // 5 Hz
-  // if (counter == 0 || counter % 200 == 0) {
-  //   writeMsg(0x240, MSG2, 7, false);
-  //   writeMsg(0x241, MSG3, 7, false);
-  //   writeMsg(0x244, MSG4, 7, false);
-  //   writeMsg(0x245, MSG5, 7, false);
-  //   writeMsg(0x248, MSG6, 7, false);
-  //   writeMsg(0x344, MSG30, 8, false);
-  // }
+  // 5 Hz
+  if (loopCounter == 0 || loopCounter % 200 == 0) {
+    writeMsg(0x240, MSG2, 7, false);
+    writeMsg(0x241, MSG3, 7, false);
+    writeMsg(0x244, MSG4, 7, false);
+    writeMsg(0x245, MSG5, 7, false);
+    writeMsg(0x248, MSG6, 7, false);
+    writeMsg(0x344, MSG30, 8, false);
+  }
   
-  // // 3 Hz:
-  // if (counter == 0 || counter % 333 == 0) {
-  //   writeMsg(0x128, MSG25, 6, false);
-  //   writeMsg(0x283, MSG29, 7, false);
+  // 3 Hz:
+  if (loopCounter == 0 || loopCounter % 333 == 0) {
+    writeMsg(0x128, MSG25, 6, false);
+    writeMsg(0x283, MSG29, 7, false);
 
-  //   PCM_CRUISE_MSG[0] = (openEnabled << 5) & 0x20;
-  //   PCM_CRUISE_MSG[5] = (openEnabled << 7) & 0x80;
-  //   writeMsg(0x1d2, PCM_CRUISE_MSG, 8, true);
+    PCM_CRUISE_MSG[0] = (openEnabled << 5) & 0x20;
+    PCM_CRUISE_MSG[5] = (openEnabled << 7) & 0x80;
+    writeMsg(0x1d2, PCM_CRUISE_MSG, 8, true);
     
-  //   PCM_CRUISE_2_MSG[1] = (openEnabled << 7) & 0x80 | 0x28;
-  //   writeMsg(0x1d3, PCM_CRUISE_2_MSG, 8, true);
-  // }
+    PCM_CRUISE_2_MSG[1] = (openEnabled << 7) & 0x80 | 0x28;
+    writeMsg(0x1d3, PCM_CRUISE_2_MSG, 8, true);
+  }
   
-  // // 2 Hz:    
-  // if (counter == 0 || counter % 500 == 0) {
-  //   writeMsg(0x141, MSG26, 4, false);
-  // }
+  // 2 Hz:    
+  if (loopCounter == 0 || loopCounter % 500 == 0) {
+    writeMsg(0x141, MSG26, 4, false);
+  }
   
-  // // 1 Hz:
-  // if (counter == 0) {
-  //   STEERING_LEVER_MSG[3] = (blinkerLeft << 5) & 0x20 | (blinkerRight << 4) & 0x10;
-  //   writeMsg(0x614, STEERING_LEVER_MSG, 8, true);
-  // }
+  // 1 Hz:
+  if (loopCounter == 0) {
+    STEERING_LEVER_MSG[3] = (blinkerLeft << 5) & 0x20 | (blinkerRight << 4) & 0x10;
+    writeMsg(0x614, STEERING_LEVER_MSG, 8, true);
+  }
 
   delay(1);
   loopCounter++;
