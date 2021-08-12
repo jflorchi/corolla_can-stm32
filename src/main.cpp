@@ -1,11 +1,12 @@
 #include <Arduino.h>
-#include <MCP2515.h>
+#include <mcp2515.h>
+#include <can.h>
 
 /**
  * Function definitions
  */
 void recv(int packetSize);
-bool writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum);
+void writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum);
 void attachChecksum(uint16_t id, uint8_t len, uint8_t *msg);
 int getChecksum(uint8_t *msg, uint8_t len, uint16_t addr);
 
@@ -69,36 +70,46 @@ bool blinkerRight = false, blinkerLeft = false;
 
 uint8_t loopCounter = 0;
 
-MCP2515Class can;
-
 void recv(int packetSize) {
-    long id = can.packetId();
-    if (id == 0xb0) {
-        uint8_t dat[8];
-        WHEEL_SPEEDS[0] = can.read() + 0x1a;
-        WHEEL_SPEEDS[1] = can.read() + 0x6f;
-        WHEEL_SPEEDS[2] = can.read() + 0x1a;
-        WHEEL_SPEEDS[3] = can.read() + 0x6f;
-    } else if (id == 0xb2) {
-        WHEEL_SPEEDS[4] = can.read() + 0x1a;
-        WHEEL_SPEEDS[5] = can.read() + 0x6f;
-        WHEEL_SPEEDS[6] = can.read() + 0x1a;
-        WHEEL_SPEEDS[7] = can.read() + 0x6f;
-    } else if (id == 0x399) {
-        can.read();
-        openEnabled = (can.read() & 0x2) == 2;
-    } else if (id == 0x25) {
+    // long id = can.packetId();
+    // Serial.println(id);
+    // if (id == 0xb0) {
+    //     uint8_t dat[8];
+    //     WHEEL_SPEEDS[0] = can.read() + 0x1a;
+    //     WHEEL_SPEEDS[1] = can.read() + 0x6f;
+    //     WHEEL_SPEEDS[2] = can.read() + 0x1a;
+    //     WHEEL_SPEEDS[3] = can.read() + 0x6f;
+    // } else if (id == 0xb2) {
+    //     WHEEL_SPEEDS[4] = can.read() + 0x1a;
+    //     WHEEL_SPEEDS[5] = can.read() + 0x6f;
+    //     WHEEL_SPEEDS[6] = can.read() + 0x1a;
+    //     WHEEL_SPEEDS[7] = can.read() + 0x6f;
+    // } else if (id == 0x399) {
+    //     can.read();
+    //     openEnabled = (can.read() & 0x2) == 2;
+    // } else if (id == 0x25) {
 
-    }
+    // }
 }
+
+MCP2515 can(PA4);
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting up...");
 
-  can.setPins(PA4, PA3);
+  can.reset();
+  can.setBitrate(CAN_500KBPS, MCP_16MHZ);
+  can.setNormalMode();
+
+/**
+ *   SPI.setMISO(PA6);
+  SPI.setMOSI(PA7);
+  SPI.setSCLK(PA5);
+  can.setPins(PA4, PB1);
   can.begin(500E3);
-  can.onReceive(recv);
+
+  */
 }
 
 uint16_t counter = 0;
@@ -108,7 +119,14 @@ void loop() {
     loopCounter = 0;
   }
 
-  Serial.println("HELLO");
+  struct can_frame frame; // will need a while loop
+  uint8_t val = can.readMessage(&frame);
+  if (val == MCP2515::ERROR_OK) {
+    Serial.println(frame.can_id);
+  } else {
+    Serial.println(val);
+  }
+
   // Serial.println(can.available());
 
   // 100 Hz:
@@ -192,15 +210,17 @@ void loop() {
   loopCounter++;
 }
 
-bool writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum) {
-    can.beginPacket(id);
+void writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum) {
+    struct can_frame frame;
+    frame.can_id = id;
+    frame.can_dlc = len;
     if (checksum) {
         attachChecksum(id, len, msg);
     }
     for (int i = 0; i < len; i++) {
-        can.write(msg[i]);
+      frame.data[i] = msg[i];
     }
-    return can.endPacket();
+    can.sendMessage(&frame);
 }
 
 void attachChecksum(uint16_t id, uint8_t len, uint8_t *msg) {
