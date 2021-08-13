@@ -2,14 +2,16 @@
 #include <mcp2515.h>
 #include <can.h>
 #include <SPI.h>
+#include <AS5048A.h>
 
 /**
  * Function definitions
  */
-void recv(int packetSize);
 void writeMsg(uint32_t id, uint8_t *msg, uint8_t len, bool checksum);
 void attachChecksum(uint16_t id, uint8_t len, uint8_t *msg);
 int getChecksum(uint8_t *msg, uint8_t len, uint16_t addr);
+float getSteerFractionDecimal();
+uint8_t getSteerFraction();
 
 /**
  * constant messages
@@ -75,13 +77,22 @@ void recv(int packetSize) {
 
 }
 
-MCP2515 can(PB9);
+AS5048A angleSensor(PB9);
+short lastAngle = 0;
+float steerFraction = 0;
+float steerFractionMul = 360.0 / 16383.0;
+float steerFractionStep = 1.5 / steerFractionMul;
+uint16_t zssOffset = 0;
+
+MCP2515 can(PB12);
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting up...");
   pinMode(PC13, OUTPUT);
   pinMode(PC13, LOW);
+
+  angleSensor.init();
 
   can.reset();
   can.setBitrate(CAN_500KBPS, MCP_16MHZ);
@@ -109,9 +120,24 @@ void loop() {
     } else if (frame.can_id == 0x399) {
         openEnabled = (frame.data[1] & 0x2) == 2;
     } else if (frame.can_id == 0x25) {
-
+      uint16_t zssAngle = angleSensor.getRawRotation();
+      uint8_t b1 = frame.data[0];
+      bool negative = (b1 & 0x8) == 1;
+      b1 &= 0xF;
+      uint8_t b2 = frame.data[1];
+      uint16_t angle = negative ? -((b1 << 8) | b2) : (b1 << 8) | b2;
+      if (angle > lastAngle) {
+        steerFraction = 0;
+        zssOffset = zssAngle;
+      } else if (angle < lastAngle) {
+        steerFraction = steerFractionStep;
+        zssOffset = zssAngle;
+      }
+      lastAngle = angle;
     }
   }
+
+  Serial.println(angleSensor.getRawRotation());
 
   // 100 Hz:
   if (loopCounter == 0 || loopCounter % 10 == 0) {
@@ -192,6 +218,14 @@ void loop() {
 
   delay(1);
   loopCounter++;
+}
+
+float getSteerFractionDecimal() {
+  return getSteerFraction() * steerFractionMul;
+}
+
+uint8_t getSteerFraction() {
+  return ((angleSensor.getRawRotation() - zssOffset) % 16383);
 }
 
 void writeMsg(uint32_t id, uint8_t *msg, uint8_t len, bool checksum) {
