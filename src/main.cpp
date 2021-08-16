@@ -73,17 +73,13 @@ bool blinkerRight = false, blinkerLeft = false;
 
 uint8_t loopCounter = 0;
 
-void recv(int packetSize) {
-
-}
-
-AS5048A angleSensor(PB9);
 short lastAngle = 0;
 float steerFraction = 0;
 float steerFractionMul = 360.0 / 16383.0;
 float steerFractionStep = 1.5 / steerFractionMul;
 uint16_t zssOffset = 0;
 
+AS5048A angleSensor(PB9);
 MCP2515 can(PB12);
 
 void setup() {
