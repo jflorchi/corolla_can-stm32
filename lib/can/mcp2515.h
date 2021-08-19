@@ -444,8 +444,6 @@ class MCP2515
 
         uint8_t SPICS;
 
-        SPIClass _spi;
-
     private:
 
         void startSPI();
@@ -463,6 +461,7 @@ class MCP2515
     
     public:
         MCP2515(const uint8_t _CS);
+        void init();
         ERROR reset(void);
         ERROR setConfigMode();
         ERROR setListenOnlyMode();

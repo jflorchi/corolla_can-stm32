@@ -71,13 +71,13 @@ bool openEnabled = false;
 uint16_t setSpeed = 0x00;
 bool blinkerRight = false, blinkerLeft = false;
 
-uint8_t loopCounter = 0;
-
 short lastAngle = 0;
 float steerFraction = 0;
 float steerFractionMul = 360.0 / 16383.0;
 float steerFractionStep = 1.5 / steerFractionMul;
 uint16_t zssOffset = 0;
+
+uint8_t loopCounter = 0;
 
 AS5048A angleSensor(PB12);
 MCP2515 can(PB9);
@@ -88,7 +88,12 @@ void setup() {
   pinMode(PC13, OUTPUT);
   pinMode(PC13, LOW);
 
+  SPI.setMOSI(PB15);
+  SPI.setMISO(PB14);
+  SPI.setSCLK(PB10);
+
   angleSensor.init();
+  can.init();
 
   can.reset();
   can.setBitrate(CAN_500KBPS, MCP_16MHZ);

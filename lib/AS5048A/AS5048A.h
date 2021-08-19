@@ -16,7 +16,6 @@ class AS5048A{
 	word transaction(word data);
 	
 	SPISettings settings;
-	SPIClass spi;
 	
 	public:
 
