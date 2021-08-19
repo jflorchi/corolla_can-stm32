@@ -11,7 +11,7 @@ void writeMsg(uint32_t id, uint8_t *msg, uint8_t len, bool checksum);
 void attachChecksum(uint16_t id, uint8_t len, uint8_t *msg);
 int getChecksum(uint8_t *msg, uint8_t len, uint16_t addr);
 float getSteerFractionDecimal();
-uint8_t getSteerFraction();
+int8_t getSteerFraction();
 
 /**
  * constant messages
@@ -79,8 +79,8 @@ float steerFractionMul = 360.0 / 16383.0;
 float steerFractionStep = 1.5 / steerFractionMul;
 uint16_t zssOffset = 0;
 
-AS5048A angleSensor(PB9);
-MCP2515 can(PB12);
+AS5048A angleSensor(PB12);
+MCP2515 can(PB9);
 
 void setup() {
   Serial.begin(115200);
@@ -100,7 +100,7 @@ void loop() {
     loopCounter = 0;
   }
 
-  struct can_frame frame; // will need a while loop
+  struct can_frame frame;
   while (can.readMessage(&frame) == MCP2515::ERROR_OK) {
     if (frame.can_id == 0xb0) {
         uint8_t dat[8];
@@ -130,6 +130,11 @@ void loop() {
         zssOffset = zssAngle;
       }
       lastAngle = angle;
+      ZSS[0] = getSteerFraction();
+      // Serial.println(ZSS[0]);
+      float fullAngle = angle + getSteerFractionDecimal();
+      // Serial.println(fullAngle);
+      writeMsg(0x23, ZSS, 8, false);
     }
   }
 
@@ -149,9 +154,6 @@ void loop() {
     writeMsg(0x3bc, GEAR_MSG, 8, false);
     writeMsg(0x3bb, MSG19, 4, false);
     writeMsg(0x4cb, MSG33, 8, false);
-
-    // ZSS[0] = getSteerFraction();
-    writeMsg(0x23, ZSS, 8, false);
   }
   
   // 50 Hz:
@@ -220,7 +222,7 @@ float getSteerFractionDecimal() {
   return getSteerFraction() * steerFractionMul;
 }
 
-uint8_t getSteerFraction() {
+int8_t getSteerFraction() {
   return ((angleSensor.getRawRotation() - zssOffset) % 16383);
 }
 
