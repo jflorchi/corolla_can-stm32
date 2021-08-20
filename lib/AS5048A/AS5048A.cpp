@@ -33,9 +33,6 @@ void AS5048A::init(){
 	pinMode(_cs, OUTPUT);
 
 	//SPI has an internal SPI-device counter, it is possible to call "begin()" from different devices
-	SPI.setMOSI(PB15);
-	SPI.setMISO(PB14);
-	SPI.setSCLK(PB10);
 	SPI.begin();
 }
 

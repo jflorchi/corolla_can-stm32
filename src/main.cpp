@@ -135,10 +135,10 @@ void loop() {
         zssOffset = zssAngle;
       }
       lastAngle = angle;
-      ZSS[0] = getSteerFraction();
-      // Serial.println(ZSS[0]);
-      float fullAngle = angle + getSteerFractionDecimal();
-      // Serial.println(fullAngle);
+  
+      // ZSS[0] = getSteerFraction();
+      Serial.println(ZSS[0]);
+      
       writeMsg(0x23, ZSS, 8, false);
     }
   }
