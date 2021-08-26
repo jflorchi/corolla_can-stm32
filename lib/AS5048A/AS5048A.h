@@ -103,6 +103,8 @@ class AS5048A{
 
 	private:
 
+	SPIClass _spi;
+
 	byte spiCalcEvenParity(word);
 };
 #endif

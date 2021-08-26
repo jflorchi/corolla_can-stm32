@@ -69,7 +69,7 @@ uint8_t STEERING_LEVER_MSG[8] = {0x29, 0x0, 0x01, 0x0, 0x0, 0x0, 0x76};
 uint8_t WHEEL_SPEEDS[8] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 uint8_t ZSS[8] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 
-bool openEnabled = false;
+bool openEnabled = false, freonConnected = false;
 uint16_t setSpeed = 0x00;
 bool blinkerRight = false, blinkerLeft = false;
 
@@ -81,7 +81,7 @@ uint16_t zssOffset = 0;
 
 uint8_t loopCounter = 0;
 
-AS5048A angleSensor(PB9);
+AS5048A angleSensor(PA4);
 MCP2515 can(PB12);
 
 void setup() {
@@ -89,10 +89,6 @@ void setup() {
   Serial.println("Starting up...");
   pinMode(PC13, OUTPUT);
   pinMode(PC13, LOW);
-
-  SPI.setMOSI(PB15);
-  SPI.setMISO(PB14);
-  SPI.setSCLK(PB10);
 
   angleSensor.init();
   can.init();
@@ -107,8 +103,8 @@ void loop() {
     loopCounter = 0;
   }
 
-  if (openEnabled && (loopCounter == 0 || loopCounter % 6 == 0)) {
-    writeMsg(0x25, ANGLE, 8, false);
+  if (openEnabled && freonConnected && (loopCounter == 0 || loopCounter % 6 == 0)) {
+    writeMsg(0x25, ANGLE, 8, true);
   }
 
   struct can_frame frame;
@@ -142,23 +138,24 @@ void loop() {
       }
       lastAngle = angle;
   
-      // ZSS[0] = getSteerFraction();
+      ZSS[0] = getSteerFraction();
       // Serial.println(ZSS[0]);
 
       ANGLE[0] = frame.data[0];
       ANGLE[1] = frame.data[1];
-      //ANGLE[2] = frame.data[2];
-      //ANGLE[3] = frame.data[3];
+      ANGLE[2] = frame.data[2];
+      ANGLE[3] = frame.data[3];
       //ANGLE[4] = 0x0; //frame.data[4];
-      //ANGLE[5] = 0x0; //frame.data[5] / 10;
-      //ANGLE[6] = 0x0; //frame.data[6];
-      //Serial.println(ANGLE[6]);
+      //ANGLE[5] = 0x0; //frame.data[5];
+      ANGLE[6] = frame.data[6];
       
       writeMsg(0x23, ZSS, 8, false);
+    } else if (frame.can_id = 0x2e4) {
+      freonConnected = true;
     }
   }
 
-  Serial.println(angleSensor.getRotation());
+  Serial.println(angleSensor.getRawRotation());
 
   // 100 Hz:
   if (loopCounter == 0 || loopCounter % 10 == 0) {

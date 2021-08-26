@@ -27,13 +27,18 @@ AS5048A::AS5048A(byte arg_cs){
  */
 void AS5048A::init(){
 	// 1MHz clock (AMS should be able to accept up to 10MHz)
-	settings = SPISettings(1000000, MSBFIRST, SPI_MODE1);
-
+	settings = SPISettings(1000000, MSBFIRST, SPI_MODE0);
+	_spi = SPIClass();
 	//setup pins
 	pinMode(_cs, OUTPUT);
 
+
+	_spi.setMOSI(PA7);
+	_spi.setMISO(PA6);
+	_spi.setSCLK(PA5);
+
 	//SPI has an internal SPI-device counter, it is possible to call "begin()" from different devices
-	SPI.begin();
+	_spi.begin();
 }
 
 /**
@@ -41,7 +46,7 @@ void AS5048A::init(){
  * SPI has an internal SPI-device counter, for each init()-call the close() function must be called exactly 1 time
  */
 void AS5048A::close(){
-	SPI.end();
+	_spi.end();
 }
 
 /**
@@ -170,22 +175,22 @@ word AS5048A::read(word registerAddress){
 #endif
 
 	//SPI - begin transaction
-	SPI.beginTransaction(settings);
+	_spi.beginTransaction(settings);
 
 	//Send the command
 	digitalWrite(_cs, LOW);
-	SPI.transfer(left_byte);
-	SPI.transfer(right_byte);
+	_spi.transfer(left_byte);
+	_spi.transfer(right_byte);
 	digitalWrite(_cs,HIGH);
 
 	//Now read the response
 	digitalWrite(_cs, LOW);
-	left_byte = SPI.transfer(0x00);
-	right_byte = SPI.transfer(0x00);
+	left_byte = _spi.transfer(0x00);
+	right_byte = _spi.transfer(0x00);
 	digitalWrite(_cs, HIGH);
 
 	//SPI - end transaction
-	SPI.endTransaction();
+	_spi.endTransaction();
 
 #ifdef AS5048A_DEBUG
 	Serial.print("Read returned: ");
@@ -237,12 +242,12 @@ word AS5048A::write(word registerAddress, word data) {
 #endif
 
 	//SPI - begin transaction
-	SPI.beginTransaction(settings);
+	_spi.beginTransaction(settings);
 
 	//Start the write command with the target address
 	digitalWrite(_cs, LOW);
-	SPI.transfer(left_byte);
-	SPI.transfer(right_byte);
+	_spi.transfer(left_byte);
+	_spi.transfer(right_byte);
 	digitalWrite(_cs,HIGH);
 	
 	word dataToSend = 0b0000000000000000;
@@ -260,18 +265,18 @@ word AS5048A::write(word registerAddress, word data) {
 
 	//Now send the data packet
 	digitalWrite(_cs,LOW);
-	SPI.transfer(left_byte);
-	SPI.transfer(right_byte);
+	_spi.transfer(left_byte);
+	_spi.transfer(right_byte);
 	digitalWrite(_cs,HIGH);
 	
 	//Send a NOP to get the new data in the register
 	digitalWrite(_cs, LOW);
-	left_byte =-SPI.transfer(0x00);
-	right_byte = SPI.transfer(0x00);
+	left_byte =-_spi.transfer(0x00);
+	right_byte = _spi.transfer(0x00);
 	digitalWrite(_cs, HIGH);
 
 	//SPI - end transaction
-	SPI.endTransaction();
+	_spi.endTransaction();
 
 	//Return the data, stripping the parity and error bits
 	return (( ( left_byte & 0xFF ) << 8 ) | ( right_byte & 0xFF )) & ~0xC000;
