@@ -137,9 +137,7 @@ void loop() {
         zssOffset = zssAngle;
       }
       lastAngle = angle;
-  
       ZSS[0] = getSteerFraction();
-      // Serial.println(ZSS[0]);
 
       ANGLE[0] = frame.data[0];
       ANGLE[1] = frame.data[1];

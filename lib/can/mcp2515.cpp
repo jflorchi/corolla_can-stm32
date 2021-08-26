@@ -18,10 +18,7 @@ MCP2515::MCP2515(const uint8_t _CS)
 }
 
 void MCP2515::init() {
-    _spi = SPIClass();
-    _spi.setMOSI(PB15);
-    _spi.setMISO(PB14);
-    _spi.setSCLK(PB10);
+    _spi = SPIClass(PB15, PB14, PB10, SPICS);
     _spi.begin();
     pinMode(SPICS, OUTPUT);
     endSPI();

@@ -27,16 +27,10 @@ AS5048A::AS5048A(byte arg_cs){
  */
 void AS5048A::init(){
 	// 1MHz clock (AMS should be able to accept up to 10MHz)
-	settings = SPISettings(1000000, MSBFIRST, SPI_MODE0);
-	_spi = SPIClass();
+	settings = SPISettings(1000000, MSBFIRST, SPI_MODE1);
+	_spi = SPIClass(PA7, PA6, PA5, _cs);
 	//setup pins
 	pinMode(_cs, OUTPUT);
-
-
-	_spi.setMOSI(PA7);
-	_spi.setMISO(PA6);
-	_spi.setSCLK(PA5);
-
 	//SPI has an internal SPI-device counter, it is possible to call "begin()" from different devices
 	_spi.begin();
 }
