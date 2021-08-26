@@ -57,6 +57,8 @@ uint8_t MSG31[7] = {0x00, 0x00, 0x00, 0x80, 0xfc, 0x00, 0x08};
 uint8_t MSG32[7] = {0x00, 0x72, 0x07, 0xff, 0x09, 0xfe, 0x00};
 uint8_t MSG33[8] = {0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
+uint8_t ANGLE[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
 /**
  * Variable messages
  */
@@ -79,8 +81,8 @@ uint16_t zssOffset = 0;
 
 uint8_t loopCounter = 0;
 
-AS5048A angleSensor(PB12);
-MCP2515 can(PB9);
+AS5048A angleSensor(PB9);
+MCP2515 can(PB12);
 
 void setup() {
   Serial.begin(115200);
@@ -103,6 +105,10 @@ void setup() {
 void loop() {
   if (loopCounter == 1001) {
     loopCounter = 0;
+  }
+
+  if (openEnabled && (loopCounter == 0 || loopCounter % 6 == 0)) {
+    writeMsg(0x25, ANGLE, 8, false);
   }
 
   struct can_frame frame;
@@ -137,13 +143,22 @@ void loop() {
       lastAngle = angle;
   
       // ZSS[0] = getSteerFraction();
-      Serial.println(ZSS[0]);
+      // Serial.println(ZSS[0]);
+
+      ANGLE[0] = frame.data[0];
+      ANGLE[1] = frame.data[1];
+      //ANGLE[2] = frame.data[2];
+      //ANGLE[3] = frame.data[3];
+      //ANGLE[4] = 0x0; //frame.data[4];
+      //ANGLE[5] = 0x0; //frame.data[5] / 10;
+      //ANGLE[6] = 0x0; //frame.data[6];
+      //Serial.println(ANGLE[6]);
       
       writeMsg(0x23, ZSS, 8, false);
     }
   }
 
-  Serial.println(angleSensor.getRawRotation());
+  Serial.println(angleSensor.getRotation());
 
   // 100 Hz:
   if (loopCounter == 0 || loopCounter % 10 == 0) {
