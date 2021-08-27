@@ -101,6 +101,10 @@ class AS5048A{
 	 */
 	bool error();
 
+	void startSPI();
+
+	void endSPI();
+
 	private:
 
 	SPIClass _spi;

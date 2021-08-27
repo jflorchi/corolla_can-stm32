@@ -27,12 +27,21 @@ AS5048A::AS5048A(byte arg_cs){
  */
 void AS5048A::init(){
 	// 1MHz clock (AMS should be able to accept up to 10MHz)
-	settings = SPISettings(1000000, MSBFIRST, SPI_MODE1);
+	// settings = SPISettings(1000000, MSBFIRST, SPI_MODE1);
 	_spi = SPIClass(PA7, PA6, PA5, _cs);
+	_spi.begin();
 	//setup pins
 	pinMode(_cs, OUTPUT);
 	//SPI has an internal SPI-device counter, it is possible to call "begin()" from different devices
-	_spi.begin();
+	endSPI();
+}
+
+void AS5048A::startSPI() {
+	_spi.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
+}
+
+void AS5048A::endSPI() {
+    _spi.endTransaction();
 }
 
 /**
@@ -169,7 +178,8 @@ word AS5048A::read(word registerAddress){
 #endif
 
 	//SPI - begin transaction
-	_spi.beginTransaction(settings);
+	startSPI();
+	// _spi.beginTransaction(settings);
 
 	//Send the command
 	digitalWrite(_cs, LOW);
@@ -184,7 +194,8 @@ word AS5048A::read(word registerAddress){
 	digitalWrite(_cs, HIGH);
 
 	//SPI - end transaction
-	_spi.endTransaction();
+	// _spi.endTransaction();
+	endSPI();
 
 #ifdef AS5048A_DEBUG
 	Serial.print("Read returned: ");
@@ -236,7 +247,8 @@ word AS5048A::write(word registerAddress, word data) {
 #endif
 
 	//SPI - begin transaction
-	_spi.beginTransaction(settings);
+	startSPI();
+	// _spi.beginTransaction(settings);
 
 	//Start the write command with the target address
 	digitalWrite(_cs, LOW);
@@ -270,7 +282,8 @@ word AS5048A::write(word registerAddress, word data) {
 	digitalWrite(_cs, HIGH);
 
 	//SPI - end transaction
-	_spi.endTransaction();
+	// _spi.endTransaction();
+	endSPI();
 
 	//Return the data, stripping the parity and error bits
 	return (( ( left_byte & 0xFF ) << 8 ) | ( right_byte & 0xFF )) & ~0xC000;
