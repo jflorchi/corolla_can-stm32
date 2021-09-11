@@ -18,7 +18,7 @@ MCP2515::MCP2515(const uint8_t _CS)
 }
 
 void MCP2515::init() {
-    _spi = SPIClass(PB15, PB14, PB10, SPICS);
+    _spi = SPIClass(PB15, PB14, PB10);
     _spi.begin();
     pinMode(SPICS, OUTPUT);
     endSPI();
@@ -756,6 +756,16 @@ void MCP2515::clearERRIF()
     //modifyRegister(MCP_EFLG, EFLG_RX0OVR | EFLG_RX1OVR, 0);
     //clearInterrupts();
     modifyRegister(MCP_CANINTF, CANINTF_ERRIF, 0);
+}
+
+void MCP2515::clearAll() 
+{
+    clearERRIF();
+    clearInterrupts();
+    clearMERR();
+    clearRXnOVR();
+    clearRXnOVRFlags();
+    clearTXInterrupts();
 }
 
 uint8_t MCP2515::errorCountRX(void)                             

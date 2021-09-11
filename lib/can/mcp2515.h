@@ -491,6 +491,7 @@ class MCP2515
         void clearRXnOVR(void);
         void clearMERR();
         void clearERRIF();
+        void clearAll();
         uint8_t errorCountRX(void);
         uint8_t errorCountTX(void);
 };

@@ -73,16 +73,17 @@ bool openEnabled = false, freonConnected = false;
 uint16_t setSpeed = 0x00;
 bool blinkerRight = false, blinkerLeft = false;
 
-short lastAngle = 0;
+short angle = 0;
 float steerFraction = 0;
 float steerFractionMul = 360.0 / 16383.0;
 float steerFractionStep = 1.5 / steerFractionMul;
 uint16_t zssOffset = 0;
+uint16_t zero = 2010;
 
 uint8_t loopCounter = 0;
 
 AS5048A angleSensor(PA4);
-// MCP2515 can(PB12);
+MCP2515 can(PB9);
 
 void setup() {
   Serial.begin(115200);
@@ -90,16 +91,13 @@ void setup() {
   pinMode(PC13, OUTPUT);
   pinMode(PC13, LOW);
 
-  // SPI.setMOSI(PB15);
-  // SPI.setMISO(PB14);
-  // SPI.setSCLK(PB10);
-
   angleSensor.init();
-  // can.init();
+  angleSensor.setZeroPosition(zero);
+  can.init();
 
-  // can.reset();
-  // can.setBitrate(CAN_500KBPS, MCP_16MHZ);
-  // can.setNormalMode();
+  can.reset();
+  can.setBitrate(CAN_500KBPS, MCP_16MHZ);
+  can.setNormalMode();
 }
 
 void loop() {
@@ -107,57 +105,47 @@ void loop() {
     loopCounter = 0;
   }
 
-  if (openEnabled && freonConnected && (loopCounter == 0 || loopCounter % 6 == 0)) {
+  if (openEnabled && freonConnected && (loopCounter == 0 || loopCounter % 25 == 0)) {
     writeMsg(0x25, ANGLE, 8, true);
   }
 
-  // struct can_frame frame;
-  // while (can.readMessage(&frame) == MCP2515::ERROR_OK) {
-  //   if (frame.can_id == 0xb0) {
-  //       uint8_t dat[8];
-  //       WHEEL_SPEEDS[0] = frame.data[0] + 0x1a;
-  //       WHEEL_SPEEDS[1] = frame.data[1] + 0x6f;
-  //       WHEEL_SPEEDS[2] = frame.data[2] + 0x1a;
-  //       WHEEL_SPEEDS[3] = frame.data[3] + 0x6f;
-  //   } else if (frame.can_id == 0xb2) {
-  //       WHEEL_SPEEDS[4] = frame.data[0] + 0x1a;
-  //       WHEEL_SPEEDS[5] = frame.data[1] + 0x6f;
-  //       WHEEL_SPEEDS[6] = frame.data[2] + 0x1a;
-  //       WHEEL_SPEEDS[7] = frame.data[3] + 0x6f;
-  //   } else if (frame.can_id == 0x399) {
-  //       openEnabled = (frame.data[1] & 0x2) == 2;
-  //   } else if (frame.can_id == 0x25) {
-  //     uint16_t zssAngle = angleSensor.getRawRotation();
-  //     uint8_t b1 = frame.data[0];
-  //     bool negative = (b1 & 0x8) == 1;
-  //     b1 &= 0xF;
-  //     uint8_t b2 = frame.data[1];
-  //     uint16_t angle = negative ? -((b1 << 8) | b2) : (b1 << 8) | b2;
-  //     if (angle > lastAngle) {
-  //       steerFraction = 0;
-  //       zssOffset = zssAngle;
-  //     } else if (angle < lastAngle) {
-  //       steerFraction = steerFractionStep;
-  //       zssOffset = zssAngle;
-  //     }
-  //     lastAngle = angle;
-  //     ZSS[0] = getSteerFraction();
+  struct can_frame frame;
+  MCP2515::ERROR result;
+  while ((result = can.readMessage(&frame)) == MCP2515::ERROR_OK) {
+    if (frame.can_id == 0xb0) {
+        uint8_t dat[8];
+        WHEEL_SPEEDS[0] = frame.data[0] + 0x1a;
+        WHEEL_SPEEDS[1] = frame.data[1] + 0x6f;
+        WHEEL_SPEEDS[2] = frame.data[2] + 0x1a;
+        WHEEL_SPEEDS[3] = frame.data[3] + 0x6f;
+    } else if (frame.can_id == 0xb2) {
+        WHEEL_SPEEDS[4] = frame.data[0] + 0x1a;
+        WHEEL_SPEEDS[5] = frame.data[1] + 0x6f;
+        WHEEL_SPEEDS[6] = frame.data[2] + 0x1a;
+        WHEEL_SPEEDS[7] = frame.data[3] + 0x6f;
+    } else if (frame.can_id == 0x399) {
+        openEnabled = (frame.data[1] & 0x2) == 2;
+    } else if (frame.can_id == 0x25) {
+      uint8_t b1 = frame.data[0];
+      bool negative = (b1 & 0x8) == 1;
+      b1 &= 0xF;
+      uint8_t b2 = frame.data[1];
+      angle = negative ? -((b1 << 8) | b2) : (b1 << 8) | b2;
 
-  //     ANGLE[0] = frame.data[0];
-  //     ANGLE[1] = frame.data[1];
-  //     ANGLE[2] = frame.data[2];
-  //     ANGLE[3] = frame.data[3];
-  //     //ANGLE[4] = 0x0; //frame.data[4];
-  //     //ANGLE[5] = 0x0; //frame.data[5];
-  //     ANGLE[6] = frame.data[6];
-      
-  //     writeMsg(0x23, ZSS, 8, false);
-  //   } else if (frame.can_id = 0x2e4) {
-  //     freonConnected = true;
-  //   }
-  // }
-
-  Serial.println(angleSensor.getRawRotation());
+      ANGLE[0] = frame.data[0];
+      ANGLE[1] = frame.data[1];
+      ANGLE[2] = frame.data[2];
+      ANGLE[3] = frame.data[3];
+      //ANGLE[4] = 0x0; //frame.data[4];
+      //ANGLE[5] = 0x0; //frame.data[5];
+      ANGLE[6] = frame.data[6];
+    } else if (frame.can_id = 0x2e4) {
+      freonConnected = true;
+    }
+  }
+  if (result != MCP2515::ERROR_OK) {
+    can.clearAll();
+  }
 
   // 100 Hz:
   if (loopCounter == 0 || loopCounter % 10 == 0) {
@@ -173,6 +161,15 @@ void loop() {
     writeMsg(0x3bc, GEAR_MSG, 8, false);
     writeMsg(0x3bb, MSG19, 4, false);
     writeMsg(0x4cb, MSG33, 8, false);
+
+    if (!angleSensor.error()) {
+      int raw = angleSensor.getRotation();
+      ZSS[0] = raw >> 24;
+      ZSS[1] = raw >> 16;
+      ZSS[2] = raw >> 8;
+      ZSS[3] = raw;
+      writeMsg(0x23, ZSS, 8, false);  
+    }
   }
   
   // 50 Hz:
@@ -246,16 +243,16 @@ int8_t getSteerFraction() {
 }
 
 void writeMsg(uint32_t id, uint8_t *msg, uint8_t len, bool checksum) {
-    // struct can_frame frame;
-    // frame.can_id = id;
-    // frame.can_dlc = len;
-    // if (checksum) {
-    //     attachChecksum(id, len, msg);
-    // }
-    // for (int i = 0; i < len; i++) {
-    //   frame.data[i] = msg[i];
-    // }
-    // can.sendMessage(&frame);
+    struct can_frame frame;
+    frame.can_id = id;
+    frame.can_dlc = len;
+    if (checksum) {
+        attachChecksum(id, len, msg);
+    }
+    for (int i = 0; i < len; i++) {
+      frame.data[i] = msg[i];
+    }
+    can.sendMessage(&frame);
 }
 
 void attachChecksum(uint16_t id, uint8_t len, uint8_t *msg) {
