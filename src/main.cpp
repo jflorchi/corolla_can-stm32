@@ -10,8 +10,6 @@
 void writeMsg(uint32_t id, uint8_t *msg, uint8_t len, bool checksum);
 void attachChecksum(uint16_t id, uint8_t len, uint8_t *msg);
 int getChecksum(uint8_t *msg, uint8_t len, uint16_t addr);
-float getSteerFractionDecimal();
-int8_t getSteerFraction();
 
 /**
  * constant messages
@@ -62,7 +60,6 @@ uint8_t ANGLE[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 /**
  * Variable messages
  */
-uint8_t LKAS_MSG[5] = {0x0, 0x0, 0x0, 0x0, 0x0};
 uint8_t PCM_CRUISE_MSG[8] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 uint8_t PCM_CRUISE_2_MSG[8] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 uint8_t STEERING_LEVER_MSG[8] = {0x29, 0x0, 0x01, 0x0, 0x0, 0x0, 0x76};
@@ -80,6 +77,7 @@ float steerFractionStep = 1.5 / steerFractionMul;
 uint16_t zssOffset = 0;
 uint16_t zero = 2010;
 
+uint32_t startedLoop = -1;
 uint8_t loopCounter = 0;
 
 AS5048A angleSensor(PA4);
@@ -105,13 +103,21 @@ void loop() {
     loopCounter = 0;
   }
 
+  Serial.println("Main Loop");
+
   if (openEnabled && freonConnected && (loopCounter == 0 || loopCounter % 25 == 0)) {
     writeMsg(0x25, ANGLE, 8, true);
   }
 
+  startedLoop = millis();
   struct can_frame frame;
   MCP2515::ERROR result;
   while ((result = can.readMessage(&frame)) == MCP2515::ERROR_OK) {
+    Serial.println("Read Loop");
+    if (millis() - startedLoop > 1000) {
+      can.clearAll();
+      break;
+    }
     if (frame.can_id == 0xb0) {
         uint8_t dat[8];
         WHEEL_SPEEDS[0] = frame.data[0] + 0x1a;
@@ -125,30 +131,18 @@ void loop() {
         WHEEL_SPEEDS[7] = frame.data[3] + 0x6f;
     } else if (frame.can_id == 0x399) {
         openEnabled = (frame.data[1] & 0x2) == 2;
-    } else if (frame.can_id == 0x25) {
-      uint8_t b1 = frame.data[0];
-      bool negative = (b1 & 0x8) == 1;
-      b1 &= 0xF;
-      uint8_t b2 = frame.data[1];
-      angle = negative ? -((b1 << 8) | b2) : (b1 << 8) | b2;
-
-      ANGLE[0] = frame.data[0];
-      ANGLE[1] = frame.data[1];
-      ANGLE[2] = frame.data[2];
-      ANGLE[3] = frame.data[3];
-      //ANGLE[4] = 0x0; //frame.data[4];
-      //ANGLE[5] = 0x0; //frame.data[5];
-      ANGLE[6] = frame.data[6];
     } else if (frame.can_id = 0x2e4) {
       freonConnected = true;
     }
   }
-  if (result != MCP2515::ERROR_OK) {
+  if (result != MCP2515::ERROR_OK && result != MCP2515::ERROR_NOMSG) {
     can.clearAll();
   }
+  startedLoop = -1;
 
   // 100 Hz:
   if (loopCounter == 0 || loopCounter % 10 == 0) {
+    Serial.println("100 Hz");
     writeMsg(0x1c4, MSG15, 8, false);
     writeMsg(0xaa, WHEEL_SPEEDS, 8, false);
     writeMsg(0x130, MSG1, 7, false);
@@ -232,14 +226,6 @@ void loop() {
 
   delay(1);
   loopCounter++;
-}
-
-float getSteerFractionDecimal() {
-  return getSteerFraction() * steerFractionMul;
-}
-
-int8_t getSteerFraction() {
-  return ((angleSensor.getRawRotation() - zssOffset) % 16383);
 }
 
 void writeMsg(uint32_t id, uint8_t *msg, uint8_t len, bool checksum) {
