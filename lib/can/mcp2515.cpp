@@ -12,13 +12,17 @@ const struct MCP2515::RXBn_REGS MCP2515::RXB[N_RXBUFFERS] = {
     {MCP_RXB1CTRL, MCP_RXB1SIDH, MCP_RXB1DATA, CANINTF_RX1IF}
 };
 
-MCP2515::MCP2515(const uint8_t _CS)
+MCP2515::MCP2515(const uint8_t _CS, const uint8_t _MOSI, const uint8_t _MISO, const uint8_t _SCK)
 {
     SPICS = _CS;
+    SPIMOSI = _MOSI;
+    SPIMISO = _MISO;
+    SPISCK = _SCK;
 }
 
 void MCP2515::init() {
-    _spi = SPIClass(PB15, PB14, PB10);
+    // _spi = SPIClass(PB15, PB14, PB10);
+    _spi = SPIClass(SPIMOSI, SPIMISO, SPISCK);
     _spi.begin();
     pinMode(SPICS, OUTPUT);
     endSPI();

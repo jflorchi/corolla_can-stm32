@@ -7,9 +7,10 @@
 /**
  * Function definitions
  */
-void writeMsg(uint32_t id, uint8_t *msg, uint8_t len, bool checksum);
+void writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum);
 void attachChecksum(uint16_t id, uint8_t len, uint8_t *msg);
 int getChecksum(uint8_t *msg, uint8_t len, uint16_t addr);
+bool isAllowedMessage(uint16_t messageId);
 
 /**
  * constant messages
@@ -66,7 +67,7 @@ uint8_t STEERING_LEVER_MSG[8] = {0x29, 0x0, 0x01, 0x0, 0x0, 0x0, 0x76};
 uint8_t WHEEL_SPEEDS[8] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 uint8_t ZSS[8] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 
-bool openEnabled = false, freonConnected = false;
+bool openEnabled = false;
 uint16_t setSpeed = 0x00;
 bool blinkerRight = false, blinkerLeft = false;
 
@@ -81,21 +82,28 @@ uint32_t startedLoop = -1;
 uint8_t loopCounter = 0;
 
 // AS5048A angleSensor(PA4);
-MCP2515 can(PB9);
+MCP2515 carCan(PB9, PB15, PB14, PB10);
+MCP2515 epsCan(PB1, PA10, PA12, PB0);
+
+const uint8_t ALLOWED_MESSAGES_SIZE = 10;
+uint16_t ALLOWED_MESSAGES[ALLOWED_MESSAGES_SIZE] = {0xAA, 0xB4, 0x1C4, 0x25, 0x3B1, 0x2C1, 0x399, 0x3BC, 0x24, 0x2e4};
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting up...");
-  pinMode(PC13, OUTPUT);
-  pinMode(PC13, LOW);
 
   // angleSensor.init();
   // angleSensor.setZeroPosition(zero);
-  can.init();
 
-  can.reset();
-  can.setBitrate(CAN_500KBPS, MCP_16MHZ);
-  can.setNormalMode();
+  carCan.init();
+  carCan.reset();
+  carCan.setBitrate(CAN_500KBPS, MCP_16MHZ);
+  carCan.setNormalMode();
+
+  epsCan.init();
+  epsCan.reset();
+  epsCan.setBitrate(CAN_500KBPS, MCP_16MHZ);
+  epsCan.setNormalMode();
 }
 
 void loop() {
@@ -103,9 +111,10 @@ void loop() {
     loopCounter = 0;
   }
 
+  // READ FROM CAR CAN BUS
   struct can_frame frame;
   MCP2515::ERROR result;
-  while ((result = can.readMessage(&frame)) == MCP2515::ERROR_OK) {
+  while ((result = carCan.readMessage(&frame)) == MCP2515::ERROR_OK) {
     if (frame.can_id == 0xb0) {
         uint8_t dat[8];
         WHEEL_SPEEDS[0] = frame.data[0] + 0x1a;
@@ -119,9 +128,24 @@ void loop() {
         WHEEL_SPEEDS[7] = frame.data[3] + 0x6f;
     } else if (frame.can_id == 0x399) {
         openEnabled = (frame.data[1] & 0x2) == 2;
-    } else if (frame.can_id = 0x2e4) {
-      freonConnected = true;
     }
+
+    // FORWARD MESSGES TO THE EPS CAN BUS
+    if (isAllowedMessage(frame.can_id)) {
+      // if it is the steering angle sensor, remove the rate fields and re-compute checksum
+      if (frame.can_id == 0x25) {
+        frame.data[4] = 0x0;
+        frame.data[5] = 0x0;
+        frame.data[6] = 0x0;
+        attachChecksum(frame.can_id, 8, frame.data);
+      }
+      epsCan.sendMessage(&frame); 
+    }
+  }
+
+  // READ FROM EPS CAN BUS
+  while ((result = epsCan.readMessage(&frame)) == MCP2515::ERROR_OK) {
+    carCan.sendMessage(&frame); // forward every message from the EPS to the car
   }
 
   // 100 Hz:
@@ -211,7 +235,19 @@ void loop() {
   loopCounter++;
 }
 
-void writeMsg(uint32_t id, uint8_t *msg, uint8_t len, bool checksum) {
+bool isAllowedMessage(uint16_t messageId) {
+  if (messageId >= 0x700) {
+    return true;
+  }
+  for (uint8_t i = 0; i < ALLOWED_MESSAGES_SIZE; i++) {
+    if (messageId == ALLOWED_MESSAGES[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void writeMsg(uint16_t id, uint8_t *msg, uint8_t len, bool checksum) {
     struct can_frame frame;
     frame.can_id = id;
     frame.can_dlc = len;
@@ -221,7 +257,7 @@ void writeMsg(uint32_t id, uint8_t *msg, uint8_t len, bool checksum) {
     for (int i = 0; i < len; i++) {
       frame.data[i] = msg[i];
     }
-    can.sendMessage(&frame);
+    epsCan.sendMessage(&frame);
 }
 
 void attachChecksum(uint16_t id, uint8_t len, uint8_t *msg) {
