@@ -2,7 +2,7 @@
 #include <mcp2515.h>
 #include <can.h>
 #include <SPI.h>
-#include <AS5048A.h>
+// #include <AS5048A.h>
 
 /**
  * Function definitions
@@ -80,7 +80,7 @@ uint16_t zero = 2010;
 uint32_t startedLoop = -1;
 uint8_t loopCounter = 0;
 
-AS5048A angleSensor(PA4);
+// AS5048A angleSensor(PA4);
 MCP2515 can(PB9);
 
 void setup() {
@@ -89,8 +89,8 @@ void setup() {
   pinMode(PC13, OUTPUT);
   pinMode(PC13, LOW);
 
-  angleSensor.init();
-  angleSensor.setZeroPosition(zero);
+  // angleSensor.init();
+  // angleSensor.setZeroPosition(zero);
   can.init();
 
   can.reset();
@@ -103,21 +103,9 @@ void loop() {
     loopCounter = 0;
   }
 
-  Serial.println("Main Loop");
-
-  if (openEnabled && freonConnected && (loopCounter == 0 || loopCounter % 25 == 0)) {
-    writeMsg(0x25, ANGLE, 8, true);
-  }
-
-  startedLoop = millis();
   struct can_frame frame;
   MCP2515::ERROR result;
   while ((result = can.readMessage(&frame)) == MCP2515::ERROR_OK) {
-    Serial.println("Read Loop");
-    if (millis() - startedLoop > 1000) {
-      can.clearAll();
-      break;
-    }
     if (frame.can_id == 0xb0) {
         uint8_t dat[8];
         WHEEL_SPEEDS[0] = frame.data[0] + 0x1a;
@@ -135,14 +123,9 @@ void loop() {
       freonConnected = true;
     }
   }
-  if (result != MCP2515::ERROR_OK && result != MCP2515::ERROR_NOMSG) {
-    can.clearAll();
-  }
-  startedLoop = -1;
 
   // 100 Hz:
   if (loopCounter == 0 || loopCounter % 10 == 0) {
-    Serial.println("100 Hz");
     writeMsg(0x1c4, MSG15, 8, false);
     writeMsg(0xaa, WHEEL_SPEEDS, 8, false);
     writeMsg(0x130, MSG1, 7, false);
@@ -156,14 +139,14 @@ void loop() {
     writeMsg(0x3bb, MSG19, 4, false);
     writeMsg(0x4cb, MSG33, 8, false);
 
-    if (!angleSensor.error()) {
-      int raw = angleSensor.getRotation();
-      ZSS[0] = raw >> 24;
-      ZSS[1] = raw >> 16;
-      ZSS[2] = raw >> 8;
-      ZSS[3] = raw;
-      writeMsg(0x23, ZSS, 8, false);  
-    }
+    // if (!angleSensor.error()) {
+    //   int raw = angleSensor.getRotation();
+    //   ZSS[0] = raw >> 24;
+    //   ZSS[1] = raw >> 16;
+    //   ZSS[2] = raw >> 8;
+    //   ZSS[3] = raw;
+    //   writeMsg(0x23, ZSS, 8, false);  
+    // }
   }
   
   // 50 Hz:
