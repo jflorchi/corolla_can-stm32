@@ -2,7 +2,7 @@
 #include <mcp2515.h>
 #include <can.h>
 #include <SPI.h>
-// #include <AS5048A.h>
+#include <AS5048A.h>
 
 /**
  * Function definitions
@@ -77,24 +77,35 @@ float steerFraction = 0;
 float steerFractionMul = 360.0 / 16383.0;
 float steerFractionStep = 1.5 / steerFractionMul;
 uint16_t zssOffset = 0;
-uint16_t zero = 2010;
+uint16_t zero = 6968;
 
 uint32_t startedLoop = -1;
 uint8_t loopCounter = 0;
 
-// AS5048A angleSensor(PA4);
-MCP2515 carCan(PB9, PB15, PB14, PB10);
-MCP2515 epsCan(PB1, PA10, PA12, PB0);
+AS5048A angleSensor(PB9);
+MCP2515 carCan(PA15, PA7, PA6, PA5);
+MCP2515 epsCan(PA4, PA7, PA6, PA5);
 
-const uint8_t ALLOWED_MESSAGES_SIZE = 10;
-uint16_t ALLOWED_MESSAGES[ALLOWED_MESSAGES_SIZE] = {0xAA, 0xB4, 0x1C4, 0x25, 0x3B1, 0x2C1, 0x399, 0x3BC, 0x24, 0x2e4};
+const uint8_t numReadings = 10;
+uint8_t readings[numReadings];
+uint8_t readIndex = 0;
+uint8_t total = 0;
+uint8_t average = 0;
+
+/**
+ * 0x3b1
+ * 0x2c1
+ */
+
+const uint8_t ALLOWED_MESSAGES_SIZE = 6;
+uint16_t ALLOWED_MESSAGES[ALLOWED_MESSAGES_SIZE] = {0xb4, 0x3b1, 0x2c1, 0x3bc, 0x399, 0x24};
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting up...");
 
-  // angleSensor.init();
-  // angleSensor.setZeroPosition(zero);
+  angleSensor.init();
+  angleSensor.setZeroPosition(zero);
 
   carCan.init();
   carCan.reset();
@@ -132,28 +143,27 @@ void loop() {
     }
 
     // FORWARD MESSGES TO THE EPS CAN BUS
-    if (isAllowedMessage(frame.can_id)) {
-      // if it is the steering angle sensor, remove the rate fields and re-compute checksum
-      if (frame.can_id == 0x25) {
-        frame.data[4] = 0x0;
-        frame.data[5] = 0x0;
-        frame.data[6] = 0x0;
-        attachChecksum(frame.can_id, 8, frame.data);
+    if (frame.can_id != 0x25 || isAllowedMessage(frame.can_id)) {
+        epsCan.sendMessage(&frame);
       }
-      epsCan.sendMessage(&frame); 
-    }
-  }
+  } 
 
   // READ FROM EPS CAN BUS
   while ((result = epsCan.readMessage(&frame)) == MCP2515::ERROR_OK) {
     carCan.sendMessage(&frame); // forward every message from the EPS to the car
   }
 
-  // 100 Hz:
+  if (loopCounter == 0 || loopCounter % 5 == 0) {
+    writeMsgEPS(0x25, ANGLE, 8, true);
+  }
+
+  // // 100 Hz:
   if (loopCounter == 0 || loopCounter % 10 == 0) {
-    writeMsgEPS(0x1c4, MSG15, 8, false);
     writeMsgEPS(0xaa, WHEEL_SPEEDS, 8, false);
     writeMsgCAR(0xaa, WHEEL_SPEEDS, 8, false);
+    writeMsgEPS(0x3bc, GEAR_MSG, 8, false);
+    writeMsgCAR(0x3bc, GEAR_MSG, 8, false);
+    writeMsgEPS(0x1c4, MSG15, 8, false);
     writeMsgEPS(0x130, MSG1, 7, false);
     writeMsgEPS(0x414, MSG8, 7, false);
     writeMsgEPS(0x466, MSG9, 3, false);
@@ -161,19 +171,17 @@ void loop() {
     writeMsgEPS(0x48a, MSG11, 7, false);
     writeMsgEPS(0x48b, MSG12, 8, false);
     writeMsgEPS(0x4d3, MSG13, 8, false);
-    writeMsgEPS(0x3bc, GEAR_MSG, 8, false);
-    writeMsgCAR(0x3bc, GEAR_MSG, 8, false);
     writeMsgEPS(0x3bb, MSG19, 4, false);
     writeMsgEPS(0x4cb, MSG33, 8, false);
 
-    // if (!angleSensor.error()) {
-    //   int raw = angleSensor.getRotation();
-    //   ZSS[0] = raw >> 24;
-    //   ZSS[1] = raw >> 16;
-    //   ZSS[2] = raw >> 8;
-    //   ZSS[3] = raw;
-    //   writeMsgEPS(0x23, ZSS, 8, false);  
-    // }
+    if (!angleSensor.error()) {
+      int raw = angleSensor.getRotation();
+      ZSS[0] = raw >> 24;
+      ZSS[1] = raw >> 16;
+      ZSS[2] = raw >> 8;
+      ZSS[3] = raw;
+      writeMsgCAR(0x23, ZSS, 8, false);  
+    }
   }
   
   // 50 Hz:
