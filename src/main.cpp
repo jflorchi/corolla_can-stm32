@@ -37,7 +37,6 @@ uint8_t STEERING_LEVER_MSG[8] = {0x29, 0x0, 0x01, 0x0, 0x0, 0x0, 0x76};
 uint8_t WHEEL_SPEEDS[8] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 uint8_t ZSS[8] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 
-bool openEnabled = false;
 uint16_t setSpeed = 0x00;
 bool blinkerRight = false, blinkerLeft = false;
 
@@ -110,8 +109,6 @@ void loop() {
         WHEEL_SPEEDS[5] = frame.data[1] + 0x6f;
         WHEEL_SPEEDS[6] = frame.data[2] + 0x1a;
         WHEEL_SPEEDS[7] = frame.data[3] + 0x6f;
-    } else if (frame.can_id == 0x399) {
-        openEnabled = (frame.data[1] & 0x2) == 2;
     }
 
     // FORWARD MESSGES TO THE EPS CAN BUS
