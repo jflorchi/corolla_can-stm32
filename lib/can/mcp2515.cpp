@@ -712,6 +712,13 @@ uint8_t MCP2515::getErrorFlags(void)
     return readRegister(MCP_EFLG);
 }
 
+bool MCP2515::checkRXnOVR() {
+    uint8_t elgfReg = readRegister(MCP_EFLG);
+    bool rx0ovr = elgfReg & 0x40;
+    bool rx1ovr = elgfReg & 0x80;
+    return rx0ovr || rx1ovr;
+}
+
 void MCP2515::clearRXnOVRFlags(void)
 {
 	modifyRegister(MCP_EFLG, EFLG_RX0OVR | EFLG_RX1OVR, 0);

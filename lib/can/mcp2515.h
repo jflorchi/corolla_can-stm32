@@ -484,6 +484,7 @@ class MCP2515
         ERROR readMessage(struct can_frame *frame);
         bool checkReceive(void);
         bool checkError(void);
+        bool checkRXnOVR();
         uint8_t getErrorFlags(void);
         void clearRXnOVRFlags(void);
         uint8_t getInterrupts(void);
