@@ -16,7 +16,6 @@ class AS5048A{
 	word transaction(word data);
 	
 	SPISettings settings;
-	SPIClass spi;
 	
 	public:
 
@@ -102,7 +101,13 @@ class AS5048A{
 	 */
 	bool error();
 
+	void startSPI();
+
+	void endSPI();
+
 	private:
+
+	SPIClass _spi;
 
 	byte spiCalcEvenParity(word);
 };

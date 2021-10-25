@@ -443,6 +443,9 @@ class MCP2515
         } RXB[N_RXBUFFERS];
 
         uint8_t SPICS;
+        uint8_t SPIMOSI;
+        uint8_t SPIMISO;
+        uint8_t SPISCK;
 
     private:
 
@@ -458,9 +461,12 @@ class MCP2515
         void modifyRegister(const REGISTER reg, const uint8_t mask, const uint8_t data);
 
         void prepareId(uint8_t *buffer, const bool ext, const uint32_t id);
+
+        SPIClass _spi;
     
     public:
-        MCP2515(const uint8_t _CS);
+        MCP2515(const uint8_t _CS, const uint8_t _MOSI, const uint8_t _MISO, const uint8_t _SCK);
+        void init();
         ERROR reset(void);
         ERROR setConfigMode();
         ERROR setListenOnlyMode();
@@ -478,6 +484,7 @@ class MCP2515
         ERROR readMessage(struct can_frame *frame);
         bool checkReceive(void);
         bool checkError(void);
+        bool checkRXnOVR();
         uint8_t getErrorFlags(void);
         void clearRXnOVRFlags(void);
         uint8_t getInterrupts(void);
@@ -488,10 +495,9 @@ class MCP2515
         void clearRXnOVR(void);
         void clearMERR();
         void clearERRIF();
+        void clearAll();
         uint8_t errorCountRX(void);
         uint8_t errorCountTX(void);
-
-        SPIClass spi;
 };
 
 #endif

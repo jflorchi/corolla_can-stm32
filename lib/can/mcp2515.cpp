@@ -12,33 +12,36 @@ const struct MCP2515::RXBn_REGS MCP2515::RXB[N_RXBUFFERS] = {
     {MCP_RXB1CTRL, MCP_RXB1SIDH, MCP_RXB1DATA, CANINTF_RX1IF}
 };
 
-MCP2515::MCP2515(const uint8_t _CS)
+MCP2515::MCP2515(const uint8_t _CS, const uint8_t _MOSI, const uint8_t _MISO, const uint8_t _SCK)
 {
-    spi.setMISO(PA7);
-    spi.setMOSI(PA6);
-    spi.setSCLK(PA5);
-
-    spi.begin();
-
     SPICS = _CS;
+    SPIMOSI = _MOSI;
+    SPIMISO = _MISO;
+    SPISCK = _SCK;
+}
+
+void MCP2515::init() {
+    // _spi = SPIClass(PB15, PB14, PB10);
+    _spi = SPIClass(SPIMOSI, SPIMISO, SPISCK);
+    _spi.begin();
     pinMode(SPICS, OUTPUT);
     endSPI();
 }
 
 void MCP2515::startSPI() {
-    spi.beginTransaction(SPISettings(SPI_CLOCK, MSBFIRST, SPI_MODE0));
+    _spi.beginTransaction(SPISettings(SPI_CLOCK, MSBFIRST, SPI_MODE0));
     digitalWrite(SPICS, LOW);
 }
 
 void MCP2515::endSPI() {
     digitalWrite(SPICS, HIGH);
-    spi.endTransaction();
+    _spi.endTransaction();
 }
 
 MCP2515::ERROR MCP2515::reset(void)
 {
     startSPI();
-    spi.transfer(INSTRUCTION_RESET);
+    _spi.transfer(INSTRUCTION_RESET);
     endSPI();
 
     delay(10);
@@ -89,9 +92,9 @@ MCP2515::ERROR MCP2515::reset(void)
 uint8_t MCP2515::readRegister(const REGISTER reg)
 {
     startSPI();
-    spi.transfer(INSTRUCTION_READ);
-    spi.transfer(reg);
-    uint8_t ret = spi.transfer(0x00);
+    _spi.transfer(INSTRUCTION_READ);
+    _spi.transfer(reg);
+    uint8_t ret = _spi.transfer(0x00);
     endSPI();
 
     return ret;
@@ -100,11 +103,11 @@ uint8_t MCP2515::readRegister(const REGISTER reg)
 void MCP2515::readRegisters(const REGISTER reg, uint8_t values[], const uint8_t n)
 {
     startSPI();
-    spi.transfer(INSTRUCTION_READ);
-    spi.transfer(reg);
+    _spi.transfer(INSTRUCTION_READ);
+    _spi.transfer(reg);
     // mcp2515 has auto-increment of address-pointer
     for (uint8_t i=0; i<n; i++) {
-        values[i] = spi.transfer(0x00);
+        values[i] = _spi.transfer(0x00);
     }
     endSPI();
 }
@@ -112,19 +115,19 @@ void MCP2515::readRegisters(const REGISTER reg, uint8_t values[], const uint8_t 
 void MCP2515::setRegister(const REGISTER reg, const uint8_t value)
 {
     startSPI();
-    spi.transfer(INSTRUCTION_WRITE);
-    spi.transfer(reg);
-    spi.transfer(value);
+    _spi.transfer(INSTRUCTION_WRITE);
+    _spi.transfer(reg);
+    _spi.transfer(value);
     endSPI();
 }
 
 void MCP2515::setRegisters(const REGISTER reg, const uint8_t values[], const uint8_t n)
 {
     startSPI();
-    spi.transfer(INSTRUCTION_WRITE);
-    spi.transfer(reg);
+    _spi.transfer(INSTRUCTION_WRITE);
+    _spi.transfer(reg);
     for (uint8_t i=0; i<n; i++) {
-        spi.transfer(values[i]);
+        _spi.transfer(values[i]);
     }
     endSPI();
 }
@@ -132,18 +135,18 @@ void MCP2515::setRegisters(const REGISTER reg, const uint8_t values[], const uin
 void MCP2515::modifyRegister(const REGISTER reg, const uint8_t mask, const uint8_t data)
 {
     startSPI();
-    spi.transfer(INSTRUCTION_BITMOD);
-    spi.transfer(reg);
-    spi.transfer(mask);
-    spi.transfer(data);
+    _spi.transfer(INSTRUCTION_BITMOD);
+    _spi.transfer(reg);
+    _spi.transfer(mask);
+    _spi.transfer(data);
     endSPI();
 }
 
 uint8_t MCP2515::getStatus(void)
 {
     startSPI();
-    spi.transfer(INSTRUCTION_READ_STATUS);
-    uint8_t i = spi.transfer(0x00);
+    _spi.transfer(INSTRUCTION_READ_STATUS);
+    uint8_t i = _spi.transfer(0x00);
     endSPI();
 
     return i;
@@ -709,6 +712,13 @@ uint8_t MCP2515::getErrorFlags(void)
     return readRegister(MCP_EFLG);
 }
 
+bool MCP2515::checkRXnOVR() {
+    uint8_t elgfReg = readRegister(MCP_EFLG);
+    bool rx0ovr = elgfReg & 0x40;
+    bool rx1ovr = elgfReg & 0x80;
+    return rx0ovr || rx1ovr;
+}
+
 void MCP2515::clearRXnOVRFlags(void)
 {
 	modifyRegister(MCP_EFLG, EFLG_RX0OVR | EFLG_RX1OVR, 0);
@@ -757,6 +767,16 @@ void MCP2515::clearERRIF()
     //modifyRegister(MCP_EFLG, EFLG_RX0OVR | EFLG_RX1OVR, 0);
     //clearInterrupts();
     modifyRegister(MCP_CANINTF, CANINTF_ERRIF, 0);
+}
+
+void MCP2515::clearAll() 
+{
+    clearERRIF();
+    clearInterrupts();
+    clearMERR();
+    clearRXnOVR();
+    clearRXnOVRFlags();
+    clearTXInterrupts();
 }
 
 uint8_t MCP2515::errorCountRX(void)                             

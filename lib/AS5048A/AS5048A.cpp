@@ -27,14 +27,21 @@ AS5048A::AS5048A(byte arg_cs){
  */
 void AS5048A::init(){
 	// 1MHz clock (AMS should be able to accept up to 10MHz)
-	settings = SPISettings(1000000, MSBFIRST, SPI_MODE1);
-
+	// settings = SPISettings(1000000, MSBFIRST, SPI_MODE1);
+	_spi = SPIClass(PB15, PB14, PB10);
+	_spi.begin();
 	//setup pins
 	pinMode(_cs, OUTPUT);
-
 	//SPI has an internal SPI-device counter, it is possible to call "begin()" from different devices
-	spi = SPIClass(PB15, PB14, PB10);
-	spi.begin();
+	endSPI();
+}
+
+void AS5048A::startSPI() {
+	_spi.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
+}
+
+void AS5048A::endSPI() {
+    _spi.endTransaction();
 }
 
 /**
@@ -42,7 +49,7 @@ void AS5048A::init(){
  * SPI has an internal SPI-device counter, for each init()-call the close() function must be called exactly 1 time
  */
 void AS5048A::close(){
-	spi.end();
+	_spi.end();
 }
 
 /**
@@ -77,7 +84,7 @@ int AS5048A::getRotation(){
 	data = AS5048A::getRawRotation();
 	rotation = (int)data - (int)position;
 	if(rotation > 8191) rotation = -((0x3FFF)-rotation); //more than -180
-	//if(rotation < -0x1FFF) rotation = rotation+SPIClass SPI;0x3FFF;
+	// if(rotation < -0x1FFF) rotation = rotation + 0x3FFF;
 
 	return rotation;
 }
@@ -171,22 +178,24 @@ word AS5048A::read(word registerAddress){
 #endif
 
 	//SPI - begin transaction
-	spi.beginTransaction(settings);
+	startSPI();
+	// _spi.beginTransaction(settings);
 
 	//Send the command
 	digitalWrite(_cs, LOW);
-	spi.transfer(left_byte);
-	spi.transfer(right_byte);
+	_spi.transfer(left_byte);
+	_spi.transfer(right_byte);
 	digitalWrite(_cs,HIGH);
 
 	//Now read the response
 	digitalWrite(_cs, LOW);
-	left_byte = spi.transfer(0x00);
-	right_byte = spi.transfer(0x00);
+	left_byte = _spi.transfer(0x00);
+	right_byte = _spi.transfer(0x00);
 	digitalWrite(_cs, HIGH);
 
 	//SPI - end transaction
-	spi.endTransaction();
+	// _spi.endTransaction();
+	endSPI();
 
 #ifdef AS5048A_DEBUG
 	Serial.print("Read returned: ");
@@ -238,12 +247,13 @@ word AS5048A::write(word registerAddress, word data) {
 #endif
 
 	//SPI - begin transaction
-	spi.beginTransaction(settings);
+	startSPI();
+	// _spi.beginTransaction(settings);
 
 	//Start the write command with the target address
 	digitalWrite(_cs, LOW);
-	spi.transfer(left_byte);
-	spi.transfer(right_byte);
+	_spi.transfer(left_byte);
+	_spi.transfer(right_byte);
 	digitalWrite(_cs,HIGH);
 	
 	word dataToSend = 0b0000000000000000;
@@ -261,18 +271,19 @@ word AS5048A::write(word registerAddress, word data) {
 
 	//Now send the data packet
 	digitalWrite(_cs,LOW);
-	spi.transfer(left_byte);
-	spi.transfer(right_byte);
+	_spi.transfer(left_byte);
+	_spi.transfer(right_byte);
 	digitalWrite(_cs,HIGH);
 	
 	//Send a NOP to get the new data in the register
 	digitalWrite(_cs, LOW);
-	left_byte =-spi.transfer(0x00);
-	right_byte = spi.transfer(0x00);
+	left_byte =-_spi.transfer(0x00);
+	right_byte = _spi.transfer(0x00);
 	digitalWrite(_cs, HIGH);
 
 	//SPI - end transaction
-	spi.endTransaction();
+	// _spi.endTransaction();
+	endSPI();
 
 	//Return the data, stripping the parity and error bits
 	return (( ( left_byte & 0xFF ) << 8 ) | ( right_byte & 0xFF )) & ~0xC000;
