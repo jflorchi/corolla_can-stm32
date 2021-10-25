@@ -59,12 +59,6 @@ int readings[numReadings];
 int total;
 int average;
 
-int lastAngle = 0;
-float bitToDegMul = 360.0 / 16383;
-float degToBitMul = 1.0 / bitToDegMul;
-float degStepOffset = 1.5 * degToBitMul;
-bool angleCalibrated = false;
-
 void setup() {
   Serial.begin(115200);
   angleSensor.init();
@@ -118,20 +112,6 @@ void loop() {
         WHEEL_SPEEDS[7] = frame.data[3] + 0x6f;
     } else if (frame.can_id == 0x399) {
         openEnabled = (frame.data[1] & 0x2) == 2;
-    } else if (!angleCalibrated && frame.can_id == 0x25) {
-      // int tmpAngle = (frame.data[0] & 0xF) << 8;
-      // bool isSign = (frame.data[0] & 0x8) == 8;
-      // tmpAngle += frame.data[1];
-      // if (isSign) {
-      //   tmpAngle -= 4096;
-      // }
-      // tmpAngle *= 1.5;
-      // Serial.println(tmpAngle);
-      // int zss = average / numReadings;
-      // if (tmpAngle > lastAngle) { // angle increased so take from tmpAngle 
-      //   int degToBit = (int) (tmpAngle * degToBitMul);
-      //   int delta = zss - degToBit;
-      // }
     }
 
     // FORWARD MESSGES TO THE EPS CAN BUS
@@ -194,18 +174,6 @@ void initEpsCan() {
   epsCan.init();
   epsCan.reset();
   epsCan.setBitrate(CAN_500KBPS, MCP_16MHZ);
-  // epsCan.setConfigMode();
-
-  // epsCan.setFilterMask(MCP2515::MASK0, false, 0x1FF40000);
-  // epsCan.setFilter(MCP2515::RXF0, false, 0x9800000);
-  // epsCan.setFilter(MCP2515::RXF1, false, 0x9880000);
-
-  // epsCan.setFilterMask(MCP2515::MASK1, false, 0x1FFC0000);
-  // epsCan.setFilter(MCP2515::RXF2, false, 0xE500000);
-  // epsCan.setFilter(MCP2515::RXF3, false, 0xE500000);
-  // epsCan.setFilter(MCP2515::RXF4, false, 0xE500000);
-  // epsCan.setFilter(MCP2515::RXF5, false, 0xE500000);
-
   epsCan.setNormalMode();
 }
 
@@ -213,15 +181,6 @@ void initCarCan() {
   carCan.init();
   carCan.reset();
   carCan.setBitrate(CAN_500KBPS, MCP_16MHZ);
-  // carCan.setConfigMode();
-
-  // carCan.setFilter(MCP2515::RXF0, false, 0xB4);
-  // carCan.setFilter(MCP2515::RXF1, false, 0x3B1);
-  // carCan.setFilter(MCP2515::RXF2, false, 0x2C1);
-  // carCan.setFilter(MCP2515::RXF3, false, 0x3BC);
-  // carCan.setFilter(MCP2515::RXF4, false, 0x399);
-  // carCan.setFilter(MCP2515::RXF5, false, 0x24);
-
   carCan.setNormalMode();
 }
 
