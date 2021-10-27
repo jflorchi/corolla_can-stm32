@@ -52,7 +52,7 @@ MCP2515 epsCan(PA4, PA7, PA6, PA5);
 const uint8_t ALLOWED_MESSAGES_SIZE = 5;
 uint16_t ALLOWED_MESSAGES[ALLOWED_MESSAGES_SIZE] = {0xb4, 0x3b1, 0x2c1, 0x399, 0x24};
 
-const uint8_t numReadings = 12;
+const uint8_t numReadings = 5;
 uint8_t readIndex = 0;
 int readings[numReadings];
 int total;
@@ -124,8 +124,15 @@ void loop() {
     }
   }
 
-  if (loopCounter == 0 || loopCounter % 5 == 0) {
-    /* code */
+  if (loopCounter == 0 || loopCounter % 5 == 0) { // 200 Hz
+    if (!angleSensor.error()) {
+      int raw = total / numReadings;
+      ZSS[0] = raw >> 24;
+      ZSS[1] = raw >> 16;
+      ZSS[2] = raw >> 8;
+      ZSS[3] = raw;
+      writeMsgCAR(0x23, ZSS, 8, false);  
+    }
   }
   
 
@@ -141,15 +148,6 @@ void loop() {
     writeMsgEPS(0x48a, MSG11, 7, false);
     writeMsgEPS(0x48b, MSG12, 8, false);
     writeMsgEPS(0x4d3, MSG13, 8, false);
-
-    if (!angleSensor.error()) {
-      int raw = total / numReadings;
-      ZSS[0] = raw >> 24;
-      ZSS[1] = raw >> 16;
-      ZSS[2] = raw >> 8;
-      ZSS[3] = raw;
-      writeMsgCAR(0x23, ZSS, 8, false);  
-    }
   }
   
   // 40 Hz:
